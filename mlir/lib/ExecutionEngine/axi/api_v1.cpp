@@ -1,4 +1,4 @@
-#include "axi_apiv1.h"
+#include "api_v1.h"
 
 void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
                    unsigned int _dma_input_buffer_size,
