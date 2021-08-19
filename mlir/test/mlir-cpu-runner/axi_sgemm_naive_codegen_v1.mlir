@@ -6,33 +6,12 @@
 // RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext | \
 // RUN: FileCheck %s
 
-// To run this example on AORUS
-// mlir-opt target.mlir \
-//   -convert-linalg-to-loops -lower-affine \
-//   -convert-scf-to-std -convert-vector-to-llvm \
-//   -convert-std-to-llvm | mlir-cpu-runner -O3 \
-//   -e generalize_matmul_buffer \
-//   -entry-point-result=void \
-//   -shared-libs=/home/agostini/Development/llvm-project/build/lib/libmlir_runner_utils.so,/home/agostini/Development/llvm-project/build/lib/libmlir_c_runner_utils.so
-
-// To run this example on LION:
-// /home/nico/Development/axi4mlir/builds/llvm-project/build/bin/mlir-opt   \
-//    -convert-linalg-to-loops -lower-affine -convert-scf-to-std   \
-//    -convert-vector-to-llvm -convert-std-to-llvm \
-//    /home/nico/Development/axi4mlir/llvm-project/mlir/test/mlir-cpu-runner/axi_sgemm_naive_codegen_v1.mlir |  \
-// /home/nico/Development/axi4mlir/builds/llvm-project/build/bin/mlir-cpu-runner   \
-//    -O0 -e generalize_matmul_buffer -entry-point-result=void   \
-//    -shared-libs=/home/nico/Development/axi4mlir/builds/llvm-project/build/lib/libmlir_runner_utils.so   \
-//    -shared-libs=/home/nico/Development/axi4mlir/builds/llvm-project/build/lib/libmlir_c_runner_utils.so
-
-
 // AXI4MLIR types
 !void_type = type memref<*xi8>
 
 // Other MLIR functions
 func private @print_flops(f64)
 func private @rtclock() -> f64
-
 
 #map0 = affine_map<(d0) -> (2, -d0 + 16)>
 #map1 = affine_map<(d0) -> (2, -d0 + 8)>
@@ -102,24 +81,21 @@ func @generalize_matmul_buffer(%arg0: memref<16x8xf32>, %arg1: memref<8x32xf32>,
 
         // %in_buf_addr = call @dma_get_inbuffer() : () -> (!void_type)
 
-        // // %out_buf_addr = call @dma_get_outbuffer() : () -> (!void_type)
+        // %out_buf_addr = call @dma_get_outbuffer() : () -> (!void_type)
 
-        // // Copy data to be transfered and set the transfer size
-        // // memref.copy() // Copy A tile to input address in_buf_addr
-        // // memref.copy() // Copy B tile to input address+offset in_buf_addr+A_lenght
+        // Copy data to be transfered and set the transfer size
+        // memref.copy() // Copy A tile to input address in_buf_addr
+        // memref.copy() // Copy B tile to input address+offset in_buf_addr+A_lenght
         %status1 = call @dma_start_send (%in_lenght, %in_offset) : (i64, i64) -> (i64)
 
         // // // Send the buffers, and start the accelerator
         call @dma_wait_send () : () -> ()
-        // // // call #accelator_start
+        // call #accelator_start
         
-        // // // Prepare copy back and receive buffers 
+        // Prepare copy back and receive buffers 
         %status2 =call @dma_start_recv (%out_lenght, %out_offset) : (i64, i64) -> (i64)
         // call @dma_wait_recv () : () -> ()
-        // // // memref.copy() // Copy C tile from output address out_buf_addr
-
-
-
+        // memref.copy() // Copy C tile from output address out_buf_addr
       }
     }
   }
@@ -127,4 +103,17 @@ func @generalize_matmul_buffer(%arg0: memref<16x8xf32>, %arg1: memref<8x32xf32>,
   return
 }
 
-//CHECK: Fail
+//CHECK: dma_init
+
+// This is a repeating pattern. Only check the first 2 iterations.
+//CHECK: dma_start_send
+//CHECK: dma_wait_send
+//CHECK: dma_start_recv
+//
+//CHECK: dma_start_send
+//CHECK: dma_wait_send
+//CHECK: dma_start_recv
+//
+// Many more will happen
+
+//CHECK: dma_free
