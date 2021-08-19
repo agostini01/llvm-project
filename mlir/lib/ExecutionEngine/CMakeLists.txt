@@ -14,6 +14,7 @@ set(LLVM_OPTIONAL_SOURCES
   OptUtils.cpp
   JitRunner.cpp
   AxiUtils.cpp
+  AxiUtilsMock.cpp
   )
 
 if(LLVM_USE_INTEL_JITEVENTS)
@@ -227,7 +228,7 @@ endif()
 
 add_mlir_library(mlir_mockaxi_runner_utils
   SHARED
-  AxiUtils.cpp
+  AxiUtilsMock.cpp
 
   EXCLUDE_FROM_LIBMLIR
 )
@@ -239,9 +240,8 @@ add_mlir_library(mlir_axi_runner_utils
 
   EXCLUDE_FROM_LIBMLIR
 )
-target_compile_definitions(mlir_mockaxi_runner_utils PRIVATE mlir_mockaxi_runner_utils_EXPORTS)
-
+target_compile_definitions(mlir_axi_runner_utils PRIVATE mlir_axi_runner_utils_EXPORTS)
 add_dependencies(mlir_axi_runner_utils
   axi_api_v1
-  )
+)
  
