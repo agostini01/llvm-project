@@ -88,6 +88,12 @@ set(MLIR_TEST_DEPENDS
   mlir-reduce
   mlir-tblgen
   mlir-translate
+
+  # TODO: Make sure the runner libs are necessary here
+  mlir_runner_utils
+  mlir_c_runner_utils
+  mlir_async_runtime
+  mlir_mockaxi_runner_utils
   )
 
 # The native target may not be enabled, in this case we won't
