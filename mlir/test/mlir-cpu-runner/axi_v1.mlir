@@ -78,6 +78,3 @@ func @in_out(%arg0: memref<2x2xf32>, %arg1: memref<2x2xf32>) {
 //CHECK: dma_start_recv
 //CHECK: dma_wait_recv
 //CHECK: dma_free
-
-// Force this test to fail
-//CHECK: Fail
