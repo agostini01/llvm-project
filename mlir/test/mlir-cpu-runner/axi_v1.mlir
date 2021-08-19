@@ -61,12 +61,13 @@ func @in_out(%arg0: memref<2x2xf32>, %arg1: memref<2x2xf32>) {
 
   // Send the buffers, and start the accelerator
   call @dma_wait_send () : () -> ()
+  
   // // // call #accelator_start
   
-  // // // Prepare copy back and receive buffers 
+  // Prepare copy back and receive buffers 
   %status2 =call @dma_start_recv (%out_lenght, %out_offset) : (i64, i64) -> (i64)
-  // call @dma_wait_recv () : () -> ()
-  // // // memref.copy() // Copy C tile from output address out_buf_addr
+  call @dma_wait_recv () : () -> ()
+  // memref.copy() // Copy C tile from output address out_buf_addr
 
   call @dma_free() : () -> ()
   return
