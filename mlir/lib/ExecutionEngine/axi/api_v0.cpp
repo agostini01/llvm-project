@@ -1,6 +1,6 @@
 //**********************Deprecated**********************
 
-#include "api_v0.h"
+#include "mlir/ExecutionEngine/axi/api_v0.h""
 
 void dma::init(int id) {
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 4);
