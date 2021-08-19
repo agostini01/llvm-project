@@ -1,6 +1,8 @@
 # Exclude these from libMLIR.so because the JIT infrastructure
 # is a big dependency which most don't need.
 
+add_subdirectory(axi)
+
 set(LLVM_OPTIONAL_SOURCES
   AsyncRuntime.cpp
   CRunnerUtils.cpp
@@ -230,3 +232,16 @@ add_mlir_library(mlir_mockaxi_runner_utils
   EXCLUDE_FROM_LIBMLIR
 )
 target_compile_definitions(mlir_mockaxi_runner_utils PRIVATE mlir_mockaxi_runner_utils_EXPORTS)
+
+add_mlir_library(mlir_axi_runner_utils
+  SHARED
+  AxiUtils.cpp
+
+  EXCLUDE_FROM_LIBMLIR
+)
+target_compile_definitions(mlir_mockaxi_runner_utils PRIVATE mlir_mockaxi_runner_utils_EXPORTS)
+
+add_dependencies(mlir_axi_runner_utils
+  axi_api_v1
+  )
+ 
