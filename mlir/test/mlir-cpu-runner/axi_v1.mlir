@@ -3,8 +3,7 @@
 // RUN:  -convert-vector-to-llvm -convert-std-to-llvm %s | \
 // RUN: mlir-cpu-runner \
 // RUN:  -O0 -e in_out -entry-point-result=void \
-// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_runner_utils%shlibext \
-// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext | \
+// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext | \
 // RUN: FileCheck %s
 
 // AXI4MLIR types
@@ -73,4 +72,12 @@ func @in_out(%arg0: memref<2x2xf32>, %arg1: memref<2x2xf32>) {
   return
 }
 
+//CHECK: dma_init
+//CHECK: dma_start_send
+//CHECK: dma_wait_send
+//CHECK: dma_start_recv
+//CHECK: dma_wait_recv
+//CHECK: dma_free
+
+// Force this test to fail
 //CHECK: Fail

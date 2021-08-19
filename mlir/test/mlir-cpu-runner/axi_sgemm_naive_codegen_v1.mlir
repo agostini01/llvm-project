@@ -3,8 +3,7 @@
 // RUN:  -convert-vector-to-llvm -convert-std-to-llvm %s | \
 // RUN: mlir-cpu-runner \
 // RUN:  -O0 -e generalize_matmul_buffer -entry-point-result=void \
-// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_runner_utils%shlibext \
-// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext | \
+// RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext | \
 // RUN: FileCheck %s
 
 // To run this example on AORUS
