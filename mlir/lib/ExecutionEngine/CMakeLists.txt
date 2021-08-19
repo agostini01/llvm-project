@@ -11,6 +11,7 @@ set(LLVM_OPTIONAL_SOURCES
   RunnerUtils.cpp
   OptUtils.cpp
   JitRunner.cpp
+  AxiUtils.cpp
   )
 
 add_mlir_library(MLIRExecutionEngine
@@ -185,3 +186,11 @@ if(MLIR_ENABLE_ROCM_RUNNER)
     ${ROCM_RUNTIME_LIBRARY}
   )
 endif()
+
+add_mlir_library(mlir_mockaxi_runner_utils
+  SHARED
+  AxiUtils.cpp
+
+  EXCLUDE_FROM_LIBMLIR
+)
+target_compile_definitions(mlir_mockaxi_runner_utils PRIVATE mlir_mockaxi_runner_utils_EXPORTS)

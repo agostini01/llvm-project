@@ -79,6 +79,7 @@ set(MLIR_TEST_DEPENDS
   mlir_runner_utils
   mlir_c_runner_utils
   mlir_async_runtime
+  mlir_mockaxi_runner_utils
   )
 
 if (MLIR_INCLUDE_INTEGRATION_TESTS)
