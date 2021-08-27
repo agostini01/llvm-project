@@ -13,6 +13,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#ifdef SYSC
+#include "mlir/ExecutionEngine/axi/sysc_test/dma_engine.sc.h"
+#endif
+
 // API Model = One DMA is allocated with a single input and output buffer (Can
 // have different size)
 
@@ -36,8 +40,10 @@ struct dma {
 #define S2MM_LENGTH 0x58
 #define PAGE_SIZE getpagesize()
 
+#define m_assert(expr, msg) assert(( (void)(msg), (expr) ))
+#define VERBOSE_AXI
 #ifdef VERBOSE_AXI
-#define LOG(x) std::cout << x < < < < std::endl
+#define LOG(x) std::cout << x  << std::endl
 #else
 #define LOG(x)
 #endif
@@ -48,6 +54,11 @@ struct dma {
   unsigned int dma_input_buffer_size;
   unsigned int dma_output_buffer_size;
   unsigned int *acc_address;
+
+#ifdef SYSC
+  MMAcc* acc;
+  DMA_DRIVER* dmad;
+#endif
 
   void dma_init(unsigned int dma_address, unsigned int dma_input_address,
                 unsigned int dma_input_buffer_size,
@@ -117,11 +128,10 @@ struct dma {
   //********************************** Unexposed Functions
   //**********************************
   void initDMAControls();
-  unsigned int dma_set(unsigned int *dma_virtual_address, int offset,
-                       unsigned int value);
+  void dma_set(unsigned int *dma_virtual_address, int offset,unsigned int value);
   unsigned int dma_get(unsigned int *dma_virtual_address, int offset);
-  int dma_mm2s_sync();
-  int dma_s2mm_sync();
+  void dma_mm2s_sync();
+  void dma_s2mm_sync();
   void acc_init(unsigned int base_addr, int length);
   void dump_acc_signals(int state);
 };
