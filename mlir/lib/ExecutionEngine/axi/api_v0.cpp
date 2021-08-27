@@ -1,6 +1,6 @@
 //**********************Deprecated**********************
 
-#include "mlir/ExecutionEngine/axi/api_v0.h""
+#include "mlir/ExecutionEngine/axi/api_v0.h"
 
 void dma::init(int id) {
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 4);
@@ -8,9 +8,9 @@ void dma::init(int id) {
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 0);
   dma_set(dma_address, MM2S_CONTROL_REGISTER, 0);
   dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
-          (unsigned int)dma_output_addr); // Write destination address
+          (unsigned long)dma_output_addr); // Write destination address
   dma_set(dma_address, MM2S_START_ADDRESS,
-          (unsigned int)dma_input_addr); // Write source address
+          (unsigned long)dma_input_addr); // Write source address
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 0xf001);
   dma_set(dma_address, MM2S_CONTROL_REGISTER, 0xf001);
 }

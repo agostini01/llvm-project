@@ -15,6 +15,7 @@ set(LLVM_OPTIONAL_SOURCES
   JitRunner.cpp
   AxiUtils.cpp
   AxiUtilsMock.cpp
+  AxiUtilsSysc.cpp
   )
 
 if(LLVM_USE_INTEL_JITEVENTS)
@@ -237,11 +238,23 @@ target_compile_definitions(mlir_mockaxi_runner_utils PRIVATE mlir_mockaxi_runner
 add_mlir_library(mlir_axi_runner_utils
   SHARED
   AxiUtils.cpp
-
   EXCLUDE_FROM_LIBMLIR
 )
 target_compile_definitions(mlir_axi_runner_utils PRIVATE mlir_axi_runner_utils_EXPORTS)
 add_dependencies(mlir_axi_runner_utils
   axi_api_v1
 )
- 
+target_link_libraries(mlir_axi_runner_utils PUBLIC axi_api_v1) # Needed to call imlpemented functions
+
+add_mlir_library(mlir_syscaxi_runner_utils
+  SHARED
+  AxiUtilsSysc.cpp
+  EXCLUDE_FROM_LIBMLIR
+)
+target_compile_definitions(mlir_syscaxi_runner_utils PRIVATE mlir_syscaxi_runner_utils_EXPORTS)
+add_dependencies(mlir_syscaxi_runner_utils
+  axi_api_v1_sysc
+)
+target_link_libraries(mlir_syscaxi_runner_utils PUBLIC axi_api_v1_sysc) # Needed to call imlpemented functions
+set(CMAKE_CXX_FLAGS "${tmpcxxflags}")  # Revert to normal CXX flags
+

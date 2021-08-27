@@ -10,109 +10,99 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define SYSC
 #include "mlir/ExecutionEngine/axi/api_v1.h"
 
+
+//SystemC code does not require all these parameters
 void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
                    unsigned int _dma_input_buffer_size,
                    unsigned int _dma_output_address,
                    unsigned int _dma_output_buffer_size) {
-  int dh = open("/dev/mem", O_RDWR | O_SYNC);
-  void *dma_mm = mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE, MAP_SHARED, dh,
-                      _dma_address); // Memory map AXI Lite register block
-  void *dma_in_mm =
-      mmap(NULL, _dma_input_buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, dh,
-           _dma_input_address); // Memory map source address
-  void *dma_out_mm =
-      mmap(NULL, _dma_output_buffer_size, PROT_READ, MAP_SHARED, dh,
-           _dma_output_address); // Memory map destination address
-  dma_address = reinterpret_cast<unsigned int *>(dma_mm);
-  dma_input_address = reinterpret_cast<unsigned int *>(dma_in_mm);
-  dma_output_address = reinterpret_cast<unsigned int *>(dma_out_mm);
-  dma_input_buffer_size = _dma_input_buffer_size;
-  dma_output_buffer_size = _dma_output_buffer_size;
-  close(dh);
-  // initDMAControls(); // Causes Segfault atm
-  std::cout << "test" << std::endl;
+
+  sc_report_handler::set_actions("/IEEE_Std_1666/deprecated", SC_DO_NOTHING);
+  sc_report_handler::set_actions( SC_ID_LOGIC_X_TO_BOOL_, SC_LOG);
+  sc_report_handler::set_actions( SC_ID_VECTOR_CONTAINS_LOGIC_VALUE_, SC_LOG);
+
+  int DMA_input_buffer[_dma_input_buffer_size];
+  int DMA_output_buffer[_dma_output_buffer_size];
+
+  static sc_clock clk_fast("ClkFast", 1, SC_NS);
+  static sc_signal<bool>    sig_reset;
+  static sc_fifo <DATA>			din1("din1_fifo",_dma_input_buffer_size);
+  static sc_fifo <DATA>			dout1("dout1_fifo",_dma_output_buffer_size);
+
+  //DUT
+  static MMAcc ge("DUT");
+  ge.clock(clk_fast);
+  ge.reset(sig_reset);
+  ge.dout1(dout1);
+  ge.din1(din1);
+
+  //DMA Engine
+  static DMA_DRIVER dm("DMA");
+  dm.clock(clk_fast);
+  dm.reset(sig_reset);
+  dm.dout1(dout1);
+  dm.din1(din1);
+
+  dm.DMA_input_buffer = DMA_input_buffer;
+  dm.DMA_output_buffer = DMA_output_buffer;
+  acc = &ge;
+  dmad = &dm;
 }
 
-void dma::dma_free() {
-  munmap(dma_input_address, dma_input_buffer_size / 4);
-  munmap(dma_output_address, dma_output_buffer_size / 4);
-  munmap(dma_address, 65536 / 4);
+void dma::dma_free() {LOG("SystemC dma_free() does nothing");}
+
+unsigned int* dma::dma_get_inbuffer() {LOG("SystemC dma_get_inbuffer() does nothing");return dma_input_address; }
+
+unsigned int* dma::dma_get_outbuffer() {LOG("SystemC dma_get_outbuffer() does nothing");return dma_output_address; }
+
+int dma::dma_copy_to_inbuffer(unsigned int *src_address, int data_length, int offset) {
+  LOG("SystemC dma_copy_to_inbuffer()");
+  m_assert("data copy will overflow input buffer",(unsigned int) (offset + data_length) <= dma_input_buffer_size);
+  memcpy((dmad->DMA_input_buffer + offset),src_address, data_length * 4);
+  dmad->input_len+= data_length;
+  return 0; 
 }
 
-// We could reduce to one set of the following calls
-//==============================================================================
-unsigned int* dma::dma_get_inbuffer() { return dma_input_address; }
-
-unsigned int* dma::dma_get_outbuffer() { return dma_output_address; }
-//==============================================================================
-int dma::dma_copy_to_inbuffer(unsigned int *src_address, int data_length,
-                              int offset) {
-  m_assert("data copy will overflow input buffer",
-          (unsigned int) (offset + data_length) <= dma_input_buffer_size);
-  std::memcpy(&dma_input_address + offset,&src_address, data_length * 4);
-  return 0;
+int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length, int offset) {
+  LOG("SystemC dma_copy_from_outbuffer()");
+  m_assert("tries to access data outwith the output buffer",(unsigned int) (offset + data_length) <= dma_output_buffer_size);
+  memcpy(dst_address,(dmad->DMA_output_buffer + offset), data_length * 4);
+  dmad->input_len+= data_length;
+  return 0; 
 }
-
-int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
-                                 int offset) {
-  m_assert("tries to access data outwith the output buffer",
-          (unsigned int) (offset + data_length) <= dma_output_buffer_size);
-  std::memcpy(&dst_address, &dma_output_address + offset, data_length * 4);
-  return 0;
-}
-//==============================================================================
 
 int dma::dma_start_send(int length, int offset) {
-  m_assert("trying to send data outside the input buffer",
-          (unsigned int) (offset + length) <= dma_input_buffer_size);
-  dma_set(dma_address, MM2S_START_ADDRESS,
-          (unsigned long)dma_input_address + offset);
-  dma_set(dma_address, MM2S_LENGTH, length);
-  LOG("Transfer Started");
-  return 0;
+  LOG("SystemC dma_start_send() does nothing");
+  return 0; 
 }
 
 void dma::dma_wait_send() {
-  dma_mm2s_sync();
-  LOG("Data Transfer - Done");
+  LOG("SystemC dma_wait_send()");
+  sc_start();
 }
 
 int dma::dma_check_send() {
-  unsigned int mm2s_status = dma_get(dma_address, MM2S_STATUS_REGISTER);
-  bool done = !((!(mm2s_status & 1 << 12)) || (!(mm2s_status & 1 << 1)));
-  if (done)
-    LOG("Data Transfer - Done");
-  else
-    LOG("Data Transfer - Not Done");
-  return done ? 0 : -1;
+  LOG("SystemC dma_check_send() does nothing");
+  return 0; 
 }
 
 int dma::dma_start_recv(int length, int offset) {
-  m_assert("trying receive data outside the output buffer",
-           (unsigned int) (offset + length) <= dma_output_buffer_size);
-  dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
-          (unsigned long)dma_output_address + offset);
-  dma_set(dma_address, S2MM_LENGTH, length);
-  LOG("Started Receiving");
-  return 0;
+  LOG("SystemC dma_start_recv() does nothing");
+  return 0; 
 }
 
 void dma::dma_wait_recv() {
-  dma_s2mm_sync();
-  LOG("Data Receive - Done");
+  LOG("SystemC dma_wait_recv() does nothing");
 }
 
 int dma::dma_check_recv() {
-  unsigned int s2mm_status = dma_get(dma_address, S2MM_STATUS_REGISTER);
-  bool done = !((!(s2mm_status & 1 << 12)) || (!(s2mm_status & 1 << 1)));
-  if (done)
-    LOG("Data Receive - Done");
-  else
-    LOG("Data Receive - Not Done");
-  return done ? 0 : -1;
+  LOG("SystemC dma_check_recv() does nothing");
+  return 0;
 }
+
 
 //********************************** Unexposed Functions
 //**********************************
