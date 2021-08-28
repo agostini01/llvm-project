@@ -35,6 +35,7 @@ target_link_libraries(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libs
 
 set(tmpcxxflags ${CMAKE_CXX_FLAGS})
 string(REPLACE "-Werror=global-constructors" "" FIXED  ${CMAKE_CXX_FLAGS})
+string(REPLACE "-Wcast-qual" "-Wno-vla-extension" FIXED  ${FIXED})
 set(CMAKE_CXX_FLAGS "${FIXED}")
 
 #No additional properties for now

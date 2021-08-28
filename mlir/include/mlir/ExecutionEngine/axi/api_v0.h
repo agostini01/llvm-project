@@ -33,7 +33,7 @@ struct dma {
 
   void init(int id);
 
-  unsigned int dma_set(unsigned int *dma_virtual_address, int offset,
+  void dma_set(unsigned int *dma_virtual_address, int offset,
                        unsigned int value) {
     dma_virtual_address[offset >> 2] = value;
   }
