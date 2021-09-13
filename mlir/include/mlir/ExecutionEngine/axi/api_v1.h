@@ -41,7 +41,7 @@ struct dma {
 #define PAGE_SIZE getpagesize()
 
 #define m_assert(expr, msg) assert(( (void)(msg), (expr) ))
-#define VERBOSE_AXI
+// #define VERBOSE_AXI
 #ifdef VERBOSE_AXI
 #define LOG(x) std::cout << x  << std::endl
 #else
@@ -53,7 +53,10 @@ struct dma {
   unsigned int *dma_output_address;
   unsigned int dma_input_buffer_size;
   unsigned int dma_output_buffer_size;
+  unsigned int dma_input_paddress;
+  unsigned int dma_output_paddress;
   unsigned int *acc_address;
+  unsigned int current_input_offset;
 
 #ifdef SYSC
   MMAcc* acc;
