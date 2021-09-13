@@ -17,7 +17,7 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
                    unsigned int _dma_output_address,
                    unsigned int _dma_output_buffer_size) {
   int dh = open("/dev/mem", O_RDWR | O_SYNC);
-  void *dma_mm = mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE, MAP_SHARED, dh,
+  void *dma_mm = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, dh,
                       _dma_address); // Memory map AXI Lite register block
   void *dma_in_mm =
       mmap(NULL, _dma_input_buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, dh,
@@ -30,15 +30,18 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   dma_output_address = reinterpret_cast<unsigned int *>(dma_out_mm);
   dma_input_buffer_size = _dma_input_buffer_size;
   dma_output_buffer_size = _dma_output_buffer_size;
+  dma_input_paddress = _dma_input_address;
+  dma_output_paddress = _dma_output_address;
+  current_input_offset=0;
   close(dh);
-  // initDMAControls(); // Causes Segfault atm
-  std::cout << "test" << std::endl;
+  initDMAControls(); // Causes Segfault atm
+  LOG("DMA Initialised");
 }
 
 void dma::dma_free() {
   munmap(dma_input_address, dma_input_buffer_size / 4);
   munmap(dma_output_address, dma_output_buffer_size / 4);
-  munmap(dma_address, 65536 / 4);
+  munmap(dma_address, getpagesize() / 4);
 }
 
 // We could reduce to one set of the following calls
@@ -51,7 +54,8 @@ int dma::dma_copy_to_inbuffer(unsigned int *src_address, int data_length,
                               int offset) {
   m_assert("data copy will overflow input buffer",
           (unsigned int) (offset + data_length) <= dma_input_buffer_size);
-  std::memcpy(&dma_input_address + offset,&src_address, data_length * 4);
+  std::memcpy(dma_input_address + offset,src_address, data_length * 4);
+  current_input_offset+=data_length;
   return 0;
 }
 
@@ -59,7 +63,7 @@ int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
                                  int offset) {
   m_assert("tries to access data outwith the output buffer",
           (unsigned int) (offset + data_length) <= dma_output_buffer_size);
-  std::memcpy(&dst_address, &dma_output_address + offset, data_length * 4);
+  std::memcpy(dst_address, dma_output_address + offset, data_length * 4);
   return 0;
 }
 //==============================================================================
@@ -68,13 +72,16 @@ int dma::dma_start_send(int length, int offset) {
   m_assert("trying to send data outside the input buffer",
           (unsigned int) (offset + length) <= dma_input_buffer_size);
   dma_set(dma_address, MM2S_START_ADDRESS,
-          (unsigned long)dma_input_address + offset);
-  dma_set(dma_address, MM2S_LENGTH, length);
-  LOG("Transfer Started");
+          dma_input_paddress + (offset*4));
+  msync(dma_address, PAGE_SIZE, MS_SYNC);
+  dma_set(dma_address, MM2S_LENGTH, length*4);
+  LOG("Transfer Started - " <<  length*4);
+  current_input_offset=0;
   return 0;
 }
 
 void dma::dma_wait_send() {
+  LOG("Data Transfer - Waiting");
   dma_mm2s_sync();
   LOG("Data Transfer - Done");
 }
@@ -93,24 +100,27 @@ int dma::dma_start_recv(int length, int offset) {
   m_assert("trying receive data outside the output buffer",
            (unsigned int) (offset + length) <= dma_output_buffer_size);
   dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
-          (unsigned long)dma_output_address + offset);
-  dma_set(dma_address, S2MM_LENGTH, length);
-  LOG("Started Receiving");
+          dma_output_paddress + (offset*4));
+  msync(dma_address, PAGE_SIZE, MS_SYNC);
+  LOG("Started Receiving " << length * 4);
+  dma_set(dma_address, S2MM_LENGTH, length*4);
+  LOG("Started Receiving " << length * 4);
   return 0;
 }
 
 void dma::dma_wait_recv() {
+  LOG("Data Receive - Waiting");
+  LOG("Data Receive - Waiting " << dma_get(dma_address,S2MM_LENGTH));
   dma_s2mm_sync();
-  LOG("Data Receive - Done");
+  unsigned int recv_len =  dma_get(dma_address,S2MM_LENGTH);
+  LOG("Data Receive - Done " << recv_len);
 }
 
 int dma::dma_check_recv() {
   unsigned int s2mm_status = dma_get(dma_address, S2MM_STATUS_REGISTER);
   bool done = !((!(s2mm_status & 1 << 12)) || (!(s2mm_status & 1 << 1)));
-  if (done)
-    LOG("Data Receive - Done");
-  else
-    LOG("Data Receive - Not Done");
+  if (done)LOG("Data Receive - Done");
+  else LOG("Data Receive - Not Done");
   return done ? 0 : -1;
 }
 
@@ -121,10 +131,14 @@ void dma::initDMAControls() {
   dma_set(dma_address, MM2S_CONTROL_REGISTER, 4);
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 0);
   dma_set(dma_address, MM2S_CONTROL_REGISTER, 0);
+  // dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
+  //         (unsigned long)dma_output_address); // Write destination address
+  // dma_set(dma_address, MM2S_START_ADDRESS,
+  //         (unsigned long)dma_input_address); // Write source address
   dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
-          (unsigned long)dma_output_address); // Write destination address
+          dma_output_paddress); // Write destination address
   dma_set(dma_address, MM2S_START_ADDRESS,
-          (unsigned long)dma_input_address); // Write source address
+          dma_input_paddress); // Write source address
   dma_set(dma_address, S2MM_CONTROL_REGISTER, 0xf001);
   dma_set(dma_address, MM2S_CONTROL_REGISTER, 0xf001);
 }

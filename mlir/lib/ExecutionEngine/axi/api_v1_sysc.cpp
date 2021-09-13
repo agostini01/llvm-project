@@ -80,7 +80,7 @@ int dma::dma_start_send(int length, int offset) {
 }
 
 void dma::dma_wait_send() {
-  LOG("SystemC dma_wait_send()");
+  LOG("SystemC dma_wait_send() starts simulation");
   sc_start();
 }
 
