@@ -28,7 +28,7 @@ add_mlir_library(axi_api_v1_sysc
   EXCLUDE_FROM_LIBMLIR
 )
 
-# Fixing compiler flags for SytemC --- expects env var "SYSTEMC_HOME" to point to SystemC install
+# Fixing compiler flags for SystemC --- expects env var "SYSTEMC_HOME" to point to SystemC install
 target_include_directories(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/include/)
 set_target_properties(axi_api_v1_sysc PROPERTIES COMPILE_FLAGS "")
 target_link_libraries(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
