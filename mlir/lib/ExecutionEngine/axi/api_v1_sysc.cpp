@@ -13,6 +13,8 @@
 #define SYSC
 #include "mlir/ExecutionEngine/axi/api_v1.h"
 
+int sc_main(int argc, char *argv[]) { return 0; }
+
 // SystemC code does not require all these parameters
 void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
                    unsigned int _dma_input_buffer_size,
@@ -49,6 +51,8 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   dm.DMA_output_buffer = DMA_output_buffer;
   acc = &ge;
   dmad = &dm;
+
+  LOG("SystemC dma_init() initializes the DMA");
 }
 
 void dma::dma_free() { LOG("SystemC dma_free() does nothing"); }
@@ -76,7 +80,7 @@ int dma::dma_copy_to_inbuffer(unsigned int *src_address, int data_length,
 int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
                                  int offset) {
   LOG("SystemC dma_copy_from_outbuffer()");
-  m_assert("tries to access data outwith the output buffer",
+  m_assert("tries to access data out with the output buffer",
            (unsigned int)(offset + data_length) <= dma_output_buffer_size);
   memcpy(dst_address, (dmad->DMA_output_buffer + offset), data_length * 4);
   dmad->input_len += data_length;
