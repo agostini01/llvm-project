@@ -77,7 +77,7 @@ func @main(%arg0: memref<4x4xf32>, %arg1: memref<4x4xf32>) {
 
 //CHECK: dma_init
 //CHECK: dma_start_send
-//CHECK: dma_wait_send
 //CHECK: dma_start_recv
+//CHECK: dma_wait_send
 //CHECK: dma_wait_recv
 //CHECK: dma_free
