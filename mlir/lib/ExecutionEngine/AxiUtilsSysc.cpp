@@ -70,6 +70,18 @@ extern "C" int dma_start_send(int length, int offset) {
   return myDMA.dma_start_send(length, offset);
 }
 
+extern "C" int mlir_dma_copy_to_inbuffer(DynamicMemRefType<float> src,
+                                         int data_length, int offset) {
+  std::cout << "Called: " << __func__ << " sysc version" << std::endl;
+  return 0;
+}
+
+extern "C" int mlir_dma_copy_from_outbuffer(DynamicMemRefType<float> dst,
+                                            int data_length, int offset) {
+  std::cout << "Called: " << __func__ << " sysc version" << std::endl;
+  return 0;
+}
+
 extern "C" int dma_check_send() {
   std::cout << "Called: " << __func__ << " sysc version" << std::endl;
   return 0;
