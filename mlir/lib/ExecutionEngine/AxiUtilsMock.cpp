@@ -58,6 +58,18 @@ extern "C" int dma_copy_from_outbuffer(unsigned int *host_dst_address,
   return 0;
 }
 
+extern "C" int mlir_dma_copy_to_inbuffer(DynamicMemRefType<float> src,
+                                         int data_length, int offset) {
+  std::cout << "Called: " << __func__ << std::endl;
+  return 0;
+}
+
+extern "C" int mlir_dma_copy_from_outbuffer(DynamicMemRefType<float> dst,
+                                            int data_length, int offset) {
+  std::cout << "Called: " << __func__ << std::endl;
+  return 0;
+}
+
 extern "C" int dma_start_send(int length, int offset) {
   std::cout << "Called: " << __func__ << std::endl;
   return 0;

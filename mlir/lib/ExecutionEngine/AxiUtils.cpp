@@ -31,7 +31,8 @@ extern "C" void dma_init(unsigned int dma_address,
   std::cout << "\t" << dma_input_buffer_size << std::endl;
   std::cout << "\t" << dma_output_address << std::endl;
   std::cout << "\t" << dma_output_buffer_size << std::endl;
-  myDMA.dma_init(0,0,0,0,0);
+  myDMA.dma_init(dma_address, dma_input_address, dma_input_buffer_size,
+                 dma_output_address, dma_output_buffer_size);
   return;
 }
 
@@ -58,6 +59,18 @@ extern "C" int dma_copy_to_inbuffer(unsigned int *host_src_address,
 
 extern "C" int dma_copy_from_outbuffer(unsigned int *host_dst_address,
                                        int data_length, int offset) {
+  std::cout << "Called: " << __func__ << " not mock version" << std::endl;
+  return 0;
+}
+
+extern "C" int mlir_dma_copy_to_inbuffer(DynamicMemRefType<float> src,
+                                         int data_length, int offset) {
+  std::cout << "Called: " << __func__ << " not mock version" << std::endl;
+  return 0;
+}
+
+extern "C" int mlir_dma_copy_from_outbuffer(DynamicMemRefType<float> dst,
+                                            int data_length, int offset) {
   std::cout << "Called: " << __func__ << " not mock version" << std::endl;
   return 0;
 }

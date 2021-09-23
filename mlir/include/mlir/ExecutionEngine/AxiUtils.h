@@ -29,6 +29,7 @@
 #endif // _WIN32
 
 #include <iostream>
+#include <mlir/ExecutionEngine/RunnerUtils.h>
 
 // =============================================================================
 // AXI_APIV1
@@ -38,11 +39,11 @@
 /**
  * - dma_address is base address of dma
  * - dma_input_addr is starting memory location for the dma input buffer,
- * - dma_input_buffer_size is length of the buffer 
- * - dma_output_addr is starting memory location for the dma output buffer, 
+ * - dma_input_buffer_size is length of the buffer
+ * - dma_output_addr is starting memory location for the dma output buffer,
  * - dma_output_buffer_size is length of the buffer
- * 
- * 
+ *
+ *
  * Runs starting controls signals and sets MMS2, S2MM address registers to start
  * memory locations of the input and output buffers
  */
@@ -81,6 +82,19 @@ extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
 dma_copy_from_outbuffer(unsigned int *host_dst_address, int data_length,
                         int offset);
 
+//-----------------BUFFER Functions-----------------
+// Copy data into the Input Buffer (length to write, offset to write to) returns
+// 0 if successful
+extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
+mlir_dma_copy_to_inbuffer(DynamicMemRefType<float> src, int data_length,
+                          int offset);
+
+// Copy data from the Output Buffer (length to read, offset to read from)
+// returns 0 if successful
+extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
+mlir_dma_copy_from_outbuffer(DynamicMemRefType<float> dst, int data_length,
+                             int offset);
+
 //================================================================================================================
 
 //-----------------DMA MMS2 Functions-----------------
@@ -90,17 +104,14 @@ dma_copy_from_outbuffer(unsigned int *host_dst_address, int data_length,
  * Starts transfers to the accelerator using dma associated with dma_id
  * Return 0 if successful, returns negative if error occurs
  */
-extern "C" MLIR_AXIRUNNERUTILS_EXPORT int dma_start_send(int length, int offset);
-// extern "C" MLIR_AXIRUNNERUTILS_EXPORT void dma_start_send(int length, int offset);
-// extern "C" MLIR_AXIRUNNERUTILS_EXPORT void dma_start_send();
+extern "C" MLIR_AXIRUNNERUTILS_EXPORT int dma_start_send(int length,
+                                                         int offset);
 
 // Same as dma_send but thread does not block, returns if 0
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT int dma_check_send();
 
 // Blocks thread until dma MMS2 transfer is complete
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT void dma_wait_send();
-
-
 
 //-----------------DMA S2MM Functions-----------------
 /**
@@ -109,7 +120,8 @@ extern "C" MLIR_AXIRUNNERUTILS_EXPORT void dma_wait_send();
  * Starts storing data recieved through dma associated with dma_id
  * Return 0 if successful, returns negative if error occurs
  */
-extern "C" MLIR_AXIRUNNERUTILS_EXPORT int dma_start_recv(int length, int offset);
+extern "C" MLIR_AXIRUNNERUTILS_EXPORT int dma_start_recv(int length,
+                                                         int offset);
 
 // Blocks thread until dma S2MM transfer is complete (TLAST signal is seen)
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT void dma_wait_recv();
