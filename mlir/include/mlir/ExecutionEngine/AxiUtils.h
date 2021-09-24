@@ -86,14 +86,20 @@ dma_copy_from_outbuffer(unsigned int *host_dst_address, int data_length,
 // Copy data into the Input Buffer (length to write, offset to write to) returns
 // 0 if successful
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
-mlir_dma_copy_to_inbuffer(DynamicMemRefType<float> src, int data_length,
+mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src, int data_length,
                           int offset);
 
 // Copy data from the Output Buffer (length to read, offset to read from)
 // returns 0 if successful
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
-mlir_dma_copy_from_outbuffer(DynamicMemRefType<float> dst, int data_length,
-                             int offset);
+mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
+                             int data_length, int offset);
+
+extern "C" MLIR_RUNNERUTILS_EXPORT int
+copy_to_inbuffer_f32(int64_t rank, void *ptr, int64_t offset);
+
+extern "C" MLIR_RUNNERUTILS_EXPORT int
+copy_from_outbuffer_f32(int64_t rank, void *ptr, int64_t offset);
 
 //================================================================================================================
 
@@ -136,5 +142,21 @@ dma_set(unsigned int *dma_virtual_address, int offset, unsigned int value);
 // Unexposed to MLIR
 extern "C" MLIR_AXIRUNNERUTILS_EXPORT unsigned int
 dma_get(unsigned int *dma_virtual_address, int offset);
+
+//-----------------Util Functions-----------------
+
+// Converts memref into llvm_array pointers
+// extern "C" MLIR_AXIRUNNERUTILS_EXPORT unsigned int *
+// memref_to_ptr(UnrankedMemRefType<char> * in_memref) {
+//   return in_memref->descriptor;
+// }
+
+// // Converts pointers into memrefs
+// extern "C" MLIR_AXIRUNNERUTILS_EXPORT UnrankedMemRefType<char>
+// ptr_to_memref(unsigned int *bare_ptr) {
+
+//   UnrankedMemRefType<char> my_memref;
+//   return my_memref;
+// }
 
 #endif // EXECUTIONENGINE_AXIUTILS_H_

@@ -16,22 +16,11 @@ func private @print_memref_f32(memref<*xf32>)
 // AXI4MLIR functions
 func private @dma_init(index, index, index, index, index) -> ()
 func private @dma_free() -> ()
-// func private @dma_get_regaddr() -> i64 attributes { llvm.emit_c_interface }
-func private @dma_get_inbuffer() -> (!ptr_type)
-func private @dma_get_outbuffer() -> (!ptr_type)
-
-
-// func private @memref_to_ptr(memref<*xf32>) -> (!ptr_type)
-// func private @ptr_to_memref(!ptr_type) -> (memref<*xf32>)
-
-// DELETE ME
-func private @memref_to_ptr() -> (!ptr_type)
-func private @ptr_to_memref() -> (memref<*xf32>)
-func private @dma_copy_to_inbuffer(!ptr_type, i64, i64) -> (i64)
-func private @dma_copy_from_outbuffer(!ptr_type, i64, i64) -> (i64)
 
 func private @mlir_dma_copy_to_inbuffer(memref<*xf32>, i64, i64) -> (i64)
 func private @mlir_dma_copy_from_outbuffer(memref<*xf32>, i64, i64) -> (i64)
+func private @copy_to_inbuffer_f32(memref<*xf32>, i64) -> (i64)
+func private @copy_from_outbuffer_f32(memref<*xf32>, i64) -> (i64)
 
 func private @dma_start_send(i64, i64) -> (i64)
 func private @dma_wait_send() -> ()
@@ -81,18 +70,17 @@ func @main() {
   %B = call @alloc_2d_filled_f32(%c4, %c4, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
   %C = call @alloc_2d_filled_f32(%c4, %c4, %cst_0) : (index, index, f32) -> (memref<?x?xf32>)
   
-  %arg0 = memref.cast %A: memref<?x?xf32> to memref<4x4xf32>
-  %arg1 = memref.cast %B: memref<?x?xf32> to memref<4x4xf32>
-  %arg2 = memref.cast %C: memref<?x?xf32> to memref<4x4xf32>
+  %A_typed = memref.cast %A: memref<?x?xf32> to memref<4x4xf32>
+  %B_typed = memref.cast %B: memref<?x?xf32> to memref<4x4xf32>
+  %C_typed = memref.cast %C: memref<?x?xf32> to memref<4x4xf32>
 
-  %in1 = memref.cast %arg0: memref<4x4xf32> to memref<*xf32>
-  %in2 = memref.cast %arg1: memref<4x4xf32> to memref<*xf32>
-  %out1 = memref.cast %arg2: memref<4x4xf32> to memref<*xf32>
+  %in1 = memref.cast %A_typed: memref<4x4xf32> to memref<*xf32>
+  %in2 = memref.cast %B_typed: memref<4x4xf32> to memref<*xf32>
+  %out1 = memref.cast %C_typed: memref<4x4xf32> to memref<*xf32>
 
 
   call @print_memref_f32(%in1) : (memref<*xf32>) -> ()
   call @print_memref_f32(%in2) : (memref<*xf32>) -> ()
-
 
   // Initializes the DMA
   call @dma_init(%c0, %c0, %c1000, %c0, %c1000) : (index,index,index,index,index ) -> ()
@@ -103,39 +91,13 @@ func @main() {
   %total_input_lenght = addi %in1_lenght, %in2_lenght : i64
   %out_lenght = muli %ts_o1, %ts_o2 : i64
   
-  // REMOVE 
-  // %in_lenght = constant 0 : i64
-  // %out_lenght = constant 0 : i64
-
   %in1_offset = constant 0 : i64  // offset on the input buffer
   %in2_offset = muli %c1_0, %in1_lenght : i64  // offset on the input buffer
   %out_offset = constant 0 : i64 // offset on the output buffer
 
-  // Get the addresses used for the transfers
-  %dma_id = constant 0 : index
-
-  // %in1_ptr = call @memref_to_ptr(%in1) : (memref<*xf32>) -> (!ptr_type)
-  // %in2_ptr = call @memref_to_ptr(%in2) : (memref<*xf32>) -> (!ptr_type)
- 
-  // DELETE ME
-  // %in1_ptr = call @memref_to_ptr() : () -> (!ptr_type)
-  // %in2_ptr = call @memref_to_ptr() : () -> (!ptr_type)
-  // call @dma_copy_to_inbuffer (%in1_ptr, %in1_lenght, %in1_offset) : (!ptr_type, i64, i64) -> (i64)
-  // call @dma_copy_to_inbuffer (%in2_ptr, %in2_lenght, %in2_offset) : (!ptr_type, i64, i64) -> (i64)
-  
-  call @mlir_dma_copy_to_inbuffer (%in1, %in1_lenght, %in1_offset) : (memref<*xf32>, i64, i64) -> (i64)
-  call @mlir_dma_copy_to_inbuffer (%in2, %in2_lenght, %in2_offset) : (memref<*xf32>, i64, i64) -> (i64)
-  // dma1.dma_copy_to_inbuffer(reinterpret_cast<unsigned int*>(inputs),rows*depth,0);
-  // dma1.dma_copy_to_inbuffer(reinterpret_cast<unsigned int*>(weightsT),depth*cols,rows*depth);
-
-  // %out_buf_addr = call @dma_get_outbuffer() : () -> (!ptr_type)
-  // %out = call @ptr_to_memref(%out_buf_addr) : (!ptr_type) -> (memref<*xf32>)
-  // DELETE ME
-  // %out = call @ptr_to_memref() : () -> (memref<*xf32>)
-
   // Copy data to be transfered and set the transfer size
-  // memref.copy() // Copy A tile to input address in_buf_addr
-  // memref.copy() // Copy B tile to input address+offset in_buf_addr+A_lenght
+  call @copy_to_inbuffer_f32(%in1, %in1_offset) : (memref<*xf32>, i64) -> (i64)
+  call @copy_to_inbuffer_f32(%in2, %in2_offset) : (memref<*xf32>, i64) -> (i64)
   call @dma_start_send (%total_input_lenght, %in1_offset) : (i64, i64) -> (i64)
   call @dma_start_recv (%out_lenght, %out_offset) : (i64, i64) -> (i64)
 
@@ -143,20 +105,22 @@ func @main() {
   call @dma_wait_send () : () -> ()
   call @dma_wait_recv () : () -> ()
   
-  // memref.copy() // Copy C tile from output address out_buf_addr
-  // dma1.dma_copy_from_outbuffer(reinterpret_cast<unsigned int*>(accelerated_outputs),cols*rows,0);
-  call @mlir_dma_copy_from_outbuffer (%out1, %in2_lenght, %in2_offset) : (memref<*xf32>, i64, i64) -> (i64)
 
-  call @print_memref_f32(%out1) : (memref<*xf32>) -> ()
+  // Copy C tile from DMA output buffer
+  call @copy_from_outbuffer_f32 (%out1, %in2_offset) : (memref<*xf32>, i64) -> (i64)
 
+  // Cleanup
   call @dma_free() : () -> ()
+
+  // Print output
+  call @print_memref_f32(%out1) : (memref<*xf32>) -> ()
   return
 }
 
 //CHECK: dma_init
 //CHECK: dma_start_send
-//CHECK: dma_wait_send
 //CHECK: dma_start_recv
+//CHECK: dma_wait_send
 //CHECK: dma_wait_recv
 //CHECK: dma_free
-//CHECK: stop here
+//CHECK: Error here on purpose!
