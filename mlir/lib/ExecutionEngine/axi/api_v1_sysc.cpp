@@ -25,8 +25,19 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   sc_report_handler::set_actions(SC_ID_LOGIC_X_TO_BOOL_, SC_LOG);
   sc_report_handler::set_actions(SC_ID_VECTOR_CONTAINS_LOGIC_VALUE_, SC_LOG);
 
-  int DMA_input_buffer[_dma_input_buffer_size];
-  int DMA_output_buffer[_dma_output_buffer_size];
+  dma_input_address =
+      (unsigned int *)malloc(_dma_input_buffer_size * sizeof(int));
+  dma_output_address =
+      (unsigned int *)malloc(_dma_output_buffer_size * sizeof(int));
+
+  // Initialize with zeros
+  for (int64_t i = 0; i < _dma_input_buffer_size; i++) {
+    *(dma_input_address + i) = 0;
+  }
+
+  for (int64_t i = 0; i < _dma_output_buffer_size; i++) {
+    *(dma_output_address + i) = 3;
+  }
 
   static sc_clock clk_fast("ClkFast", 1, SC_NS);
   static sc_signal<bool> sig_reset;
@@ -47,33 +58,31 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   dm.dout1(dout1);
   dm.din1(din1);
 
-  dm.DMA_input_buffer = DMA_input_buffer;
-  dm.DMA_output_buffer = DMA_output_buffer;
+  dm.DMA_input_buffer = (int *)dma_input_address;
+  dm.DMA_output_buffer = (int *)dma_output_address;
+
   acc = &ge;
   dmad = &dm;
 
   LOG("SystemC dma_init() initializes the DMA");
 }
 
-void dma::dma_free() { LOG("SystemC dma_free() does nothing"); }
-
-unsigned int *dma::dma_get_inbuffer() {
-  LOG("SystemC dma_get_inbuffer() does nothing");
-  return dma_input_address;
+void dma::dma_free() {
+  LOG("SystemC dma_free() deallocates DMA buffers");
+  free(dma_input_address);
+  free(dma_output_address);
 }
 
-unsigned int *dma::dma_get_outbuffer() {
-  LOG("SystemC dma_get_outbuffer() does nothing");
-  return dma_output_address;
-}
+unsigned int *dma::dma_get_inbuffer() { return dma_input_address; }
+
+unsigned int *dma::dma_get_outbuffer() { return dma_output_address; }
 
 int dma::dma_copy_to_inbuffer(unsigned int *src_address, int data_length,
                               int offset) {
   LOG("SystemC dma_copy_to_inbuffer()");
   m_assert("data copy will overflow input buffer",
            (unsigned int)(offset + data_length) <= dma_input_buffer_size);
-  memcpy((dmad->DMA_input_buffer + offset), src_address, data_length * 4);
-  dmad->input_len += data_length;
+  memcpy((dma_get_inbuffer() + offset), src_address, data_length * 4);
   return 0;
 }
 
@@ -82,13 +91,62 @@ int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
   LOG("SystemC dma_copy_from_outbuffer()");
   m_assert("tries to access data out with the output buffer",
            (unsigned int)(offset + data_length) <= dma_output_buffer_size);
-  memcpy(dst_address, (dmad->DMA_output_buffer + offset), data_length * 4);
-  dmad->input_len += data_length;
+  memcpy(dst_address, (dma_get_outbuffer() + offset), data_length * 4);
   return 0;
 }
 
+// Implements the actual copy
+template <typename T>
+int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
+                                   int64_t mr_offset, const int64_t *mr_sizes,
+                                   const int64_t *mr_strides, int dma_offset) {
+  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+
+  int64_t total_size = 1;
+  for (int64_t i = 0; i < mr_rank; i++) {
+    total_size *= mr_sizes[i];
+  }
+
+  for (int64_t i = 0; i < total_size; i++) {
+    *(dma_get_inbuffer() + dma_offset + i) = mr_base[i + mr_offset];
+  }
+
+  return 0;
+}
+
+template <typename T>
+int dma::mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim,
+                                      int64_t mr_rank, int64_t mr_offset,
+                                      const int64_t *mr_sizes,
+                                      const int64_t *mr_strides,
+                                      int dma_offset) {
+
+  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+
+  int64_t total_size = 1;
+  for (int64_t i = 0; i < mr_rank; i++) {
+    total_size *= mr_sizes[i];
+  }
+
+  for (int64_t i = 0; i < total_size; i++) {
+    mr_base[i + mr_offset] = *(dma_get_outbuffer() + dma_offset + i);
+  }
+
+  return 0;
+}
+
+// Make templates concrete:
+template int dma::mlir_dma_copy_to_inbuffer<float>(
+    float *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
+    const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
+
+template int dma::mlir_dma_copy_from_outbuffer<float>(
+    float *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
+    const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
+
 int dma::dma_start_send(int length, int offset) {
-  LOG("SystemC dma_start_send() does nothing");
+  LOG("SystemC dma_start_send()");
+  dmad->input_len = length;
   return 0;
 }
 
@@ -103,7 +161,8 @@ int dma::dma_check_send() {
 }
 
 int dma::dma_start_recv(int length, int offset) {
-  LOG("SystemC dma_start_recv() does nothing");
+  LOG("SystemC dma_start_recv()");
+  dmad->output_len = length;
   return 0;
 }
 

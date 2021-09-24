@@ -40,10 +40,10 @@ struct dma {
 #define S2MM_LENGTH 0x58
 #define PAGE_SIZE getpagesize()
 
-#define m_assert(expr, msg) assert(( (void)(msg), (expr) ))
+#define m_assert(expr, msg) assert(((void)(msg), (expr)))
 // #define VERBOSE_AXI
 #ifdef VERBOSE_AXI
-#define LOG(x) std::cout << x  << std::endl
+#define LOG(x) std::cout << x << std::endl
 #else
 #define LOG(x)
 #endif
@@ -59,8 +59,8 @@ struct dma {
   unsigned int current_input_offset;
 
 #ifdef SYSC
-  MMAcc* acc;
-  DMA_DRIVER* dmad;
+  MMAcc *acc;
+  DMA_DRIVER *dmad;
 #endif
 
   void dma_init(unsigned int dma_address, unsigned int dma_input_address,
@@ -91,10 +91,20 @@ struct dma {
   int dma_copy_to_inbuffer(unsigned int *host_src_address, int data_length,
                            int offset);
 
+  template <typename T>
+  int mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
+                                int64_t mr_offset, const int64_t *mr_sizes,
+                                const int64_t *mr_strides, int dma_offset);
+
   // Copy data from the Output Buffer (length to read, offset to read from)
   // returns 0 if successful
   int dma_copy_from_outbuffer(unsigned int *host_dst_address, int data_length,
                               int offset);
+
+  template <typename T>
+  int mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
+                                   int64_t mr_offset, const int64_t *mr_sizes,
+                                   const int64_t *mr_strides, int dma_offset);
 
   //============================================================================
 
@@ -131,7 +141,8 @@ struct dma {
   //********************************** Unexposed Functions
   //**********************************
   void initDMAControls();
-  void dma_set(unsigned int *dma_virtual_address, int offset,unsigned int value);
+  void dma_set(unsigned int *dma_virtual_address, int offset,
+               unsigned int value);
   unsigned int dma_get(unsigned int *dma_virtual_address, int offset);
   void dma_mm2s_sync();
   void dma_s2mm_sync();

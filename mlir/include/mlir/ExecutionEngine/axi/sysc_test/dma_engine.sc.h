@@ -56,7 +56,13 @@ SC_MODULE(DMA_DRIVER) {
 
   int *DMA_input_buffer;
   int *DMA_output_buffer;
+
+  // TODO: input_length = Number of elements * (sizeof(elements)/32)
   int input_len;
+  int offset;
+  
+  // TODO: add output_len to dma logic
+  int output_len;
 };
 
 #endif
