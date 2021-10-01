@@ -147,6 +147,8 @@ template int dma::mlir_dma_copy_from_outbuffer<float>(
 int dma::dma_start_send(int length, int offset) {
   LOG("SystemC dma_start_send()");
   dmad->input_len = length;
+  dmad->input_offset = offset;
+  dmad->send = true;
   return 0;
 }
 
@@ -163,10 +165,15 @@ int dma::dma_check_send() {
 int dma::dma_start_recv(int length, int offset) {
   LOG("SystemC dma_start_recv()");
   dmad->output_len = length;
+  dmad->output_offset = offset;
+  dmad->recv = true;
   return 0;
 }
 
-void dma::dma_wait_recv() { LOG("SystemC dma_wait_recv() does nothing"); }
+void dma::dma_wait_recv() { 
+  LOG("SystemC dma_wait_recv() starts simulation"); 
+  sc_start();
+  }
 
 int dma::dma_check_recv() {
   LOG("SystemC dma_check_recv() does nothing");

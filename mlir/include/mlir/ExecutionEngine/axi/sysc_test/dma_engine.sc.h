@@ -8,19 +8,18 @@ SC_MODULE(DMA_DRIVER) {
   sc_in<bool> reset;
   sc_fifo_in<DATA> dout1;
   sc_fifo_out<DATA> din1;
-  bool sent;
+  bool send;
+  bool recv;
 
   void DMA_MMS2() {
     while (1) {
+      while (!send)wait();
       for (int i = 0; i < input_len; i++) {
-        int d = DMA_input_buffer[i];
+        int d = DMA_input_buffer[i+offset];
         din1.write({d, 1});
         wait();
       }
-
-      sent = true;
-      while (sent)
-        wait();
+      send = false;
       wait();
       sc_pause();
       wait();
@@ -29,17 +28,21 @@ SC_MODULE(DMA_DRIVER) {
 
   void DMA_S2MM() {
     while (1) {
-      while (!sent)
-        wait();
+      while (!recv)wait();
       bool last = false;
       int i = 0;
       do {
         DATA d = dout1.read();
+        while(i>=output_len)wait();
         last = d.tlast;
-        DMA_output_buffer[i++] = d.data;
+        DMA_output_buffer[output_offset+i++] = d.data;
         wait();
       } while (!last);
-      sent = false;
+      output_len = i;
+      recv = false;
+      // To ensure wait_send() does not evoke the sc_pause
+      while(send)wait(2);
+      sc_pause();
       wait();
     }
   };
@@ -59,10 +62,10 @@ SC_MODULE(DMA_DRIVER) {
 
   // TODO: input_length = Number of elements * (sizeof(elements)/32)
   int input_len;
-  int offset;
+  int input_offset;
   
-  // TODO: add output_len to dma logic
   int output_len;
+  int output_offset;
 };
 
 #endif
