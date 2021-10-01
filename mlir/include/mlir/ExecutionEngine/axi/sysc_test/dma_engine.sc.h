@@ -15,7 +15,7 @@ SC_MODULE(DMA_DRIVER) {
     while (1) {
       while (!send)wait();
       for (int i = 0; i < input_len; i++) {
-        int d = DMA_input_buffer[i+offset];
+        int d = DMA_input_buffer[i+input_offset];
         din1.write({d, 1});
         wait();
       }
