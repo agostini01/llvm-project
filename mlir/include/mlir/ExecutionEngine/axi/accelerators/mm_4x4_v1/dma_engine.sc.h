@@ -1,7 +1,15 @@
-#ifndef DRIVER_H
-#define DRIVER_H
+#ifndef DMA_DRIVER_H
+#define DMA_DRIVER_H
 
-#include "accelerator.sc.h"
+#include <systemc.h>
+typedef struct _DATA {
+  sc_uint<32> data;
+  bool tlast;
+  inline friend ostream &operator<<(ostream &os, const _DATA &v) {
+    cout << "data&colon; " << v.data << " tlast: " << v.tlast;
+    return os;
+  }
+} DATA;
 
 SC_MODULE(DMA_DRIVER) {
   sc_in<bool> clock;
@@ -13,9 +21,10 @@ SC_MODULE(DMA_DRIVER) {
 
   void DMA_MMS2() {
     while (1) {
-      while (!send)wait();
+      while (!send)
+        wait();
       for (int i = 0; i < input_len; i++) {
-        int d = DMA_input_buffer[i+input_offset];
+        int d = DMA_input_buffer[i + input_offset];
         din1.write({d, 1});
         wait();
       }
@@ -28,20 +37,23 @@ SC_MODULE(DMA_DRIVER) {
 
   void DMA_S2MM() {
     while (1) {
-      while (!recv)wait();
+      while (!recv)
+        wait();
       bool last = false;
       int i = 0;
       do {
         DATA d = dout1.read();
-        while(i>=output_len)wait();
+        while (i >= output_len)
+          wait();
         last = d.tlast;
-        DMA_output_buffer[output_offset+i++] = d.data;
+        DMA_output_buffer[output_offset + i++] = d.data;
         wait();
       } while (!last);
       output_len = i;
       recv = false;
       // To ensure wait_send() does not evoke the sc_pause
-      while(send)wait(2);
+      while (send)
+        wait(2);
       sc_pause();
       wait();
     }
@@ -63,7 +75,7 @@ SC_MODULE(DMA_DRIVER) {
   // TODO: input_length = Number of elements * (sizeof(elements)/32)
   int input_len;
   int input_offset;
-  
+
   int output_len;
   int output_offset;
 };

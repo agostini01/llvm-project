@@ -14,7 +14,7 @@
 #include <unistd.h>
 
 #ifdef SYSC
-#include "mlir/ExecutionEngine/axi/sysc_test/dma_engine.sc.h"
+#include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v1/accelerator.sc.h"
 #endif
 
 // API Model = One DMA is allocated with a single input and output buffer (Can
@@ -59,7 +59,7 @@ struct dma {
   unsigned int current_input_offset;
 
 #ifdef SYSC
-  MMAcc *acc;
+  ACCNAME *acc;
   DMA_DRIVER *dmad;
 #endif
 
