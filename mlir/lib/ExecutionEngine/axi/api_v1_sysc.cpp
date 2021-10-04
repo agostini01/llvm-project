@@ -36,34 +36,19 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   }
 
   for (int64_t i = 0; i < _dma_output_buffer_size; i++) {
-    *(dma_output_address + i) = 3;
+    *(dma_output_address + i) = 0;
   }
 
-  static sc_clock clk_fast("ClkFast", 1, SC_NS);
-  static sc_signal<bool> sig_reset;
-  static sc_fifo<DATA> din1("din1_fifo", _dma_input_buffer_size);
-  static sc_fifo<DATA> dout1("dout1_fifo", _dma_output_buffer_size);
-
-  // DUT
-  static MMAcc ge("DUT");
-  ge.clock(clk_fast);
-  ge.reset(sig_reset);
-  ge.dout1(dout1);
-  ge.din1(din1);
-
-  // DMA Engine
+  static ACCNAME dut("dut");
   static DMA_DRIVER dm("DMA");
-  dm.clock(clk_fast);
-  dm.reset(sig_reset);
-  dm.dout1(dout1);
-  dm.din1(din1);
+  accelerator_dma_connect<int>(&dut, &dm, _dma_input_buffer_size,
+                               _dma_output_buffer_size);
 
   dm.DMA_input_buffer = (int *)dma_input_address;
   dm.DMA_output_buffer = (int *)dma_output_address;
 
-  acc = &ge;
+  acc = &dut;
   dmad = &dm;
-
   LOG("SystemC dma_init() initializes the DMA");
 }
 
@@ -170,16 +155,17 @@ int dma::dma_start_recv(int length, int offset) {
   return 0;
 }
 
-void dma::dma_wait_recv() { 
-  LOG("SystemC dma_wait_recv() starts simulation"); 
+void dma::dma_wait_recv() {
+  LOG("SystemC dma_wait_recv() starts simulation");
   sc_start();
-  }
+}
 
 int dma::dma_check_recv() {
   LOG("SystemC dma_check_recv() does nothing");
   return 0;
 }
 
+// We really don't need any of the functions below to be implemented for SystemC
 //********************************** Unexposed Functions
 //**********************************
 void dma::initDMAControls() {
