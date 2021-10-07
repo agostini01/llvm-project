@@ -2,14 +2,14 @@
 #define ACC_H
 
 #include "dma_engine.sc.h"
-#define ACCNAME MM_4x4
+#define ACCNAME MM_4x4v2
 
 // OP-Code Stuct
 // 000 : 0 = NOP;
 // 001 : 1 = read_A;
 // 010 : 2 = read_B;
 // 011 : 3 = read_A -> read_B;
-// 100 : 4 = compute_C
+// 100 : 4 = compute_C;
 // 101 : 5 = read_A -> compute_C;
 // 110 : 6 = read_B -> compute_C;
 // 111 : 7 = read_A -> read_B -> compute_C;

@@ -15,7 +15,9 @@
 
 #ifdef SYSC
 // Easy way to switch between systemC accelerators --- there is probably a better way
-#ifdef ACC_V2
+#ifdef ACC_V3
+#include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v3/accelerator.sc.h"
+#elif  ACC_V2
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v2/accelerator.sc.h"
 #else
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v1/accelerator.sc.h"
