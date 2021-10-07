@@ -49,11 +49,15 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
 
   acc = &dut;
   dmad = &dm;
+  acc->verbose=verbose;
   LOG("SystemC dma_init() initializes the DMA");
 }
 
 void dma::dma_free() {
   LOG("SystemC dma_free() deallocates DMA buffers");
+  LOG("**********************************");
+  LOG("SystemC simulated cycles: " <<  sc_time_stamp());
+  LOG("**********************************");
   free(dma_input_address);
   free(dma_output_address);
 }

@@ -14,7 +14,12 @@
 #include <unistd.h>
 
 #ifdef SYSC
+// Easy way to switch between systemC accelerators --- there is probably a better way
+#ifdef ACC_V2
+#include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v2/accelerator.sc.h"
+#else
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v1/accelerator.sc.h"
+#endif
 #endif
 
 // API Model = One DMA is allocated with a single input and output buffer (Can
@@ -57,6 +62,9 @@ struct dma {
   unsigned int dma_output_paddress;
   unsigned int *acc_address;
   unsigned int current_input_offset;
+
+  // temp --- need to remove later
+  bool verbose;
 
 #ifdef SYSC
   ACCNAME *acc;

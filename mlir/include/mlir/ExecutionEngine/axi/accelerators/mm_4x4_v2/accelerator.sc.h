@@ -4,6 +4,32 @@
 #include "dma_engine.sc.h"
 #define ACCNAME MM_4x4
 
+// OP-Code Stuct
+// 000 : 0 = NOP;
+// 001 : 1 = read_A;
+// 010 : 2 = read_B;
+// 011 : 3 = read_A -> read_B;
+// 100 : 4 = compute_C
+// 101 : 5 = read_A -> compute_C;
+// 110 : 6 = read_B -> compute_C;
+// 111 : 7 = read_A -> read_B -> compute_C;
+
+struct opcode {
+  unsigned int packet;
+  bool read_A;
+  bool read_B;
+  bool compute_C;
+
+  opcode(sc_uint<32> _packet) {
+    cout << "OPCODE: " << _packet << endl;
+    cout << "Time: " << sc_time_stamp() << endl;
+    packet = _packet;
+    read_A = _packet.range(0, 0);
+    read_B = _packet.range(1, 1);
+    compute_C = _packet.range(2, 2);
+  }
+};
+
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;
   sc_in<bool> reset;
@@ -81,14 +107,20 @@ void ACCNAME::Recv() {
     while (compute)
       wait();
 
-    for (int i = 0; i < 16; i++) {
-      inputs[i] = din1.read().data;
-      DWAIT();
+    opcode packet(din1.read().data);
+
+    if (packet.read_A) {
+      for (int i = 0; i < 16; i++) {
+        inputs[i] = din1.read().data;
+        DWAIT();
+      }
     }
 
-    for (int i = 0; i < 16; i++) {
-      weights[i] = din1.read().data;
-      DWAIT();
+    if (packet.read_B) {
+      for (int i = 0; i < 16; i++) {
+        weights[i] = din1.read().data;
+        DWAIT();
+      }
     }
 
     // DEBUG ONLY
@@ -111,8 +143,10 @@ void ACCNAME::Recv() {
     }
     // DEBUG ONLY
 
-    wait();
-    compute.write(true);
+    if (packet.compute_C) {
+      wait();
+      compute.write(true);
+    }
     wait();
   }
 }
