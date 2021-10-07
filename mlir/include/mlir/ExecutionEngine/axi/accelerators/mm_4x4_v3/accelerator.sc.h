@@ -2,7 +2,44 @@
 #define ACC_H
 
 #include "dma_engine.sc.h"
-#define ACCNAME MM_4x4v1
+#define ACCNAME MM_4x4v3
+
+// OP-Code Stuct
+// 0000 : 0 = NOP;
+// 0001 : 1 = read_A;
+// 0010 : 2 = read_B;
+// 0011 : 3 = read_A -> read_B;
+// 0100 : 4 = compute_C;
+// 0101 : 5 = read_A -> compute_C;
+// 0110 : 6 = read_B -> compute_C;
+// 0111 : 7 = read_A -> read_B -> compute_C;
+
+// 1000 : 8 = send_C;
+// 1001 : 9 = read_A -> send_C;
+// 1010 : 10 = read_B -> send_C;
+// 1011 : 11 = read_A -> read_B -> send_C;
+// 1100 : 12 = compute_C -> send_C;
+// 1101 : 13 = read_A -> compute_C -> send_C;
+// 1110 : 14 = read_B -> compute_C -> send_C;
+// 1111 : 15 = read_A -> read_B -> compute_C -> send_C;
+
+struct opcode {
+  unsigned int packet;
+  bool read_A;
+  bool read_B;
+  bool compute_C;
+  bool send_C;
+
+  opcode(sc_uint<32> _packet) {
+    cout << "OPCODE: " << _packet << endl;
+    cout << "Time: " << sc_time_stamp() << endl;
+    packet = _packet;
+    read_A = _packet.range(0, 0);
+    read_B = _packet.range(1, 1);
+    compute_C = _packet.range(2, 2);
+    send_C = _packet.range(3, 3);
+  }
+};
 
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;
@@ -78,17 +115,20 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
 void ACCNAME::Recv() {
   wait();
   while (1) {
-    while (compute)
-      wait();
+    opcode packet(din1.read().data);
 
-    for (int i = 0; i < 16; i++) {
-      inputs[i] = din1.read().data;
-      DWAIT();
+    if (packet.read_A) {
+      for (int i = 0; i < 16; i++) {
+        inputs[i] = din1.read().data;
+        DWAIT();
+      }
     }
 
-    for (int i = 0; i < 16; i++) {
-      weights[i] = din1.read().data;
-      DWAIT();
+    if (packet.read_B) {
+      for (int i = 0; i < 16; i++) {
+        weights[i] = din1.read().data;
+        DWAIT();
+      }
     }
 
     // DEBUG ONLY
@@ -111,8 +151,24 @@ void ACCNAME::Recv() {
     }
     // DEBUG ONLY
 
-    wait();
-    compute.write(true);
+    // Computes C if true
+    if (packet.compute_C) {
+      wait();
+      compute.write(true);
+    }
+
+    while (compute)
+      wait();
+
+    // Sends then clears C if true
+    if (packet.send_C) {
+      wait();
+      send.write(true);
+    }
+
+    while (send)
+      wait();
+
     wait();
   }
 }
@@ -130,7 +186,7 @@ void ACCNAME::Compute() {
           int y = weights[w * 4 + d];
           acc += x * y;
         }
-        outputs[i * 4 + w] = acc;
+        outputs[i * 4 + w] += acc;
       }
     }
 
@@ -148,7 +204,6 @@ void ACCNAME::Compute() {
 
     wait();
     compute.write(false);
-    send.write(true);
     wait();
   }
 }
@@ -165,6 +220,7 @@ void ACCNAME::Send() {
         d.tlast = true;
       d.data = outputs[i];
       dout1.write(d);
+      outputs[i] = 0; // Clears after sends
       DWAIT();
     }
     send.write(false);
