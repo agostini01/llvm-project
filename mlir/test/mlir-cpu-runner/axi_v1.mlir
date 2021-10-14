@@ -1,6 +1,6 @@
 // RUN: mlir-opt \
 // RUN:  -convert-scf-to-std \
-// RUN:  -convert-vector-to-llvm -convert-std-to-llvm %s | \
+// RUN:  -convert-vector-to-llvm -convert-std-to-llvm  -reconcile-unrealized-casts %s | \
 // RUN: mlir-cpu-runner \
 // RUN:  -O0 -e main -entry-point-result=void \
 // RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext | \
@@ -22,33 +22,33 @@ func private @dma_start_recv(i64, i64) -> (i64)
 func private @dma_wait_recv() -> ()
 
 func @main(%arg0: memref<4x4xf32>, %arg1: memref<4x4xf32>) {
-  %c0 = constant 0 : index
-  %c1 = constant 1 : index
-  %c2 = constant 2 : index
-  %c4 = constant 4 : index
-  %c8 = constant 8 : index
-  %c16 = constant 16 : index
-  %c32 = constant 32 : index
-  %c1000 = constant 1000 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %c4 = arith.constant 4 : index
+  %c8 = arith.constant 8 : index
+  %c16 = arith.constant 16 : index
+  %c32 = arith.constant 32 : index
+  %c1000 = arith.constant 1000 : index
 
   // Prepare tile sizes
-  %ts_a1 = constant 4 : i64
-  %ts_a2 = constant 4 : i64
-  %ts_o1 = constant 4 : i64
-  %ts_o2 = constant 4 : i64
+  %ts_a1 = arith.constant 4 : i64
+  %ts_a2 = arith.constant 4 : i64
+  %ts_o1 = arith.constant 4 : i64
+  %ts_o2 = arith.constant 4 : i64
 
   // Initializes the DMA
   call @dma_init(%c0, %c0, %c1000, %c0, %c1000) : (index,index,index,index,index ) -> ()
   
   // Sizes of in and out buffers
-  %in_lenght = muli %ts_a1, %ts_a2 : i64
-  %out_lenght = muli %ts_o1, %ts_o2 : i64
+  %in_lenght = arith.muli %ts_a1, %ts_a2 : i64
+  %out_lenght = arith.muli %ts_o1, %ts_o2 : i64
 
-  %in_offset = constant 0 : i64  // offset on the input buffer
-  %out_offset = constant 0 : i64 // offset on the output buffer
+  %in_offset = arith.constant 0 : i64  // offset on the input buffer
+  %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
   // Get the addresses used for the transfers
-  %dma_id = constant 0 : index
+  %dma_id = arith.constant 0 : index
 
   %in_buf_addr = call @dma_get_inbuffer() : () -> (!void_type)
 

@@ -1,6 +1,6 @@
 // RUN: mlir-opt \
 // RUN:  -convert-linalg-to-loops -convert-scf-to-std \
-// RUN:  -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm %s | \
+// RUN:  -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm -reconcile-unrealized-casts %s | \
 // RUN: mlir-cpu-runner \
 // RUN:  -O0 -e main -entry-point-result=void \
 // RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext \
@@ -45,25 +45,25 @@ func @alloc_2d_filled_f32(%s1 : index, %s2 : index, %f : f32) -> memref<?x?xf32>
 }
 
 func @main() {
-  %c0 = constant 0 : index
-  %c1 = constant 1 : index
-  %c2 = constant 2 : index
-  %c4 = constant 4 : index
-  %c8 = constant 8 : index
-  %c16 = constant 16 : index
-  %c32 = constant 32 : index
-  %c1000 = constant 1000 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %c4 = arith.constant 4 : index
+  %c8 = arith.constant 8 : index
+  %c16 = arith.constant 16 : index
+  %c32 = arith.constant 32 : index
+  %c1000 = arith.constant 1000 : index
 
   // Prepare tile sizes
-  %ts_a1 = constant 4 : i64
-  %ts_a2 = constant 4 : i64
-  %ts_o1 = constant 4 : i64
-  %ts_o2 = constant 4 : i64
+  %ts_a1 = arith.constant 4 : i64
+  %ts_a2 = arith.constant 4 : i64
+  %ts_o1 = arith.constant 4 : i64
+  %ts_o2 = arith.constant 4 : i64
 
 
-  %c1_0 = constant 1 : i64
-  %cst_1 = constant 1.000000e+00 : f32
-  %cst_0 = constant 0.000000e+00 : f32
+  %c1_0 = arith.constant 1 : i64
+  %cst_1 = arith.constant 1.000000e+00 : f32
+  %cst_0 = arith.constant 0.000000e+00 : f32
 
 
   %A = call @alloc_2d_filled_f32(%c4, %c4, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
@@ -88,12 +88,12 @@ func @main() {
   // Sizes of in and out buffers
   %in1_lenght = muli %ts_a1, %ts_a2 : i64
   %in2_lenght = muli %ts_a1, %ts_a2 : i64
-  %total_input_lenght = addi %in1_lenght, %in2_lenght : i64
+  %total_input_lenght = arith.addi %in1_lenght, %in2_lenght : i64
   %out_lenght = muli %ts_o1, %ts_o2 : i64
   
-  %in1_offset = constant 0 : i64  // offset on the input buffer
+  %in1_offset = arith.constant 0 : i64  // offset on the input buffer
   %in2_offset = muli %c1_0, %in1_lenght : i64  // offset on the input buffer
-  %out_offset = constant 0 : i64 // offset on the output buffer
+  %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
   // Copy data to be transfered and set the transfer size
   call @copy_to_inbuffer_f32(%in1, %in1_offset) : (memref<*xf32>, i64) -> (i64)
