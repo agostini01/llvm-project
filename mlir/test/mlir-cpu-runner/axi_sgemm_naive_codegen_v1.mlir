@@ -1,6 +1,6 @@
 // RUN: mlir-opt \
 // RUN:  -convert-linalg-to-loops -lower-affine -convert-scf-to-std \
-// RUN:  -convert-vector-to-llvm -convert-std-to-llvm %s | \
+// RUN:  -convert-vector-to-llvm -convert-std-to-llvm -reconcile-unrealized-casts %s | \
 // RUN: mlir-cpu-runner \
 // RUN:  -O0 -e generalize_matmul_buffer -entry-point-result=void \
 // RUN:  -shared-libs=%mlir_runner_utils_dir/libmlir_mockaxi_runner_utils%shlibext | \
@@ -33,22 +33,22 @@ func private @dma_start_recv(i64, i64) -> (i64)
 func private @dma_wait_recv() -> ()
 
 func @generalize_matmul_buffer(%arg0: memref<16x8xf32>, %arg1: memref<8x32xf32>, %arg2: memref<16x32xf32>) {
-  %c2 = constant 2 : index
-  %c0 = constant 0 : index
-  %c8 = constant 8 : index
-  %c16 = constant 16 : index
-  %c32 = constant 32 : index
+  %c2 = arith.constant 2 : index
+  %c0 = arith.constant 0 : index
+  %c8 = arith.constant 8 : index
+  %c16 = arith.constant 16 : index
+  %c32 = arith.constant 32 : index
 
   // Prepare tile sizes
-  %ts_a1 = constant 2 : i64
-  %ts_a2 = constant 2 : i64
-  %ts_b1 = constant 2 : i64
-  %ts_b2 = constant 2 : i64
-  %ts_c1 = constant 2 : i64
-  %ts_c2 = constant 2 : i64
+  %ts_a1 = arith.constant 2 : i64
+  %ts_a2 = arith.constant 2 : i64
+  %ts_b1 = arith.constant 2 : i64
+  %ts_b2 = arith.constant 2 : i64
+  %ts_c1 = arith.constant 2 : i64
+  %ts_c2 = arith.constant 2 : i64
 
   // Initializes the DMA
-  %idx = constant 0 : index
+  %idx = arith.constant 0 : index
   call @dma_init(%idx, %idx, %idx, %idx, %idx) : (index,index,index,index,index ) -> ()
 
   scf.for %arg3 = %c0 to %c16 step %c2 {
@@ -68,16 +68,16 @@ func @generalize_matmul_buffer(%arg0: memref<16x8xf32>, %arg1: memref<8x32xf32>,
         // linalg.matmul ins(%2, %5 : memref<?x?xf32, #map2>, memref<?x?xf32, #map4>) outs(%8 : memref<?x?xf32, #map4>)
 
         // Sizes of in and out buffers
-        %inA_lenght = muli %ts_a1, %ts_a2 : i64
-        %inB_lenght = muli %ts_b1, %ts_b2 : i64
-        %in_lenght = addi %inA_lenght, %inB_lenght : i64
-        %out_lenght = muli %ts_c1, %ts_c2 : i64
+        %inA_lenght = arith.muli %ts_a1, %ts_a2 : i64
+        %inB_lenght = arith.muli %ts_b1, %ts_b2 : i64
+        %in_lenght = arith.addi %inA_lenght, %inB_lenght : i64
+        %out_lenght = arith.muli %ts_c1, %ts_c2 : i64
 
-        %in_offset = constant 0 : i64  // offset on the input buffer
-        %out_offset = constant 0 : i64 // offset on the output buffer
+        %in_offset = arith.constant 0 : i64  // offset on the input buffer
+        %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
         // Get the addresses used for the transfers
-        %dma_id = constant 0 : index
+        %dma_id = arith.constant 0 : index
 
         // %in_buf_addr = call @dma_get_inbuffer() : () -> (!void_type)
 
