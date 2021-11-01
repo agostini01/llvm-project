@@ -4,6 +4,12 @@
 #include "dma_engine.sc.h"
 #define ACCNAME MM_4x4v2
 
+#ifdef VERBOSE_ACC
+#define ALOG(x) std::cout << x << std::endl
+#else
+#define ALOG(x)
+#endif
+
 // OP-Code Stuct
 // 000 : 0 = NOP;
 // 001 : 1 = read_A;
@@ -21,8 +27,8 @@ struct opcode {
   bool compute_C;
 
   opcode(sc_uint<32> _packet) {
-    cout << "OPCODE: " << _packet << endl;
-    cout << "Time: " << sc_time_stamp() << endl;
+    ALOG("OPCODE: " << _packet);
+    ALOG("Time: " << sc_time_stamp());
     packet = _packet;
     read_A = _packet.range(0, 0);
     read_B = _packet.range(1, 1);
@@ -41,6 +47,10 @@ SC_MODULE(ACCNAME) {
 
   // Debug variables
   int process_blocks;
+  int read_A_len;
+  int read_B_len;
+  int compute_C_len;
+  int send_C_len;
   bool verbose;
 
 #ifndef __SYNTHESIS__
@@ -57,6 +67,8 @@ SC_MODULE(ACCNAME) {
 
   void Send();
 
+  void print_profile();
+
   SC_HAS_PROCESS(ACCNAME);
 
   ACCNAME(sc_module_name name_) : sc_module(name_) {
@@ -70,6 +82,10 @@ SC_MODULE(ACCNAME) {
     reset_signal_is(reset, true);
 
     process_blocks = 0;
+    read_A_len=0;
+    read_B_len=0;
+    compute_C_len=0;
+    send_C_len=0;
     verbose = false;
 
     // #pragma HLS RESOURCE variable=din1 core=AXI4Stream metadata="-bus_bundle
@@ -101,6 +117,16 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
   dmad->din1(din1);
 }
 
+void ACCNAME::print_profile() {
+  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
+  cout << "Read A data_len: " << read_A_len << endl;
+  cout << "Read B data_len: " << read_B_len << endl;
+  cout << "MACs count: " << compute_C_len << endl;
+  cout << "Send C data_len: " << send_C_len << endl;
+  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
+}
+
+
 void ACCNAME::Recv() {
   wait();
   while (1) {
@@ -112,6 +138,7 @@ void ACCNAME::Recv() {
     if (packet.read_A) {
       for (int i = 0; i < 16; i++) {
         inputs[i] = din1.read().data;
+        read_A_len++;
         DWAIT();
       }
     }
@@ -119,6 +146,7 @@ void ACCNAME::Recv() {
     if (packet.read_B) {
       for (int i = 0; i < 16; i++) {
         weights[i] = din1.read().data;
+        read_B_len++;
         DWAIT();
       }
     }
@@ -163,6 +191,7 @@ void ACCNAME::Compute() {
           int x = inputs[i * 4 + d];
           int y = weights[w * 4 + d];
           acc += x * y;
+          compute_C_len++;
         }
         outputs[i * 4 + w] = acc;
       }
@@ -199,6 +228,7 @@ void ACCNAME::Send() {
         d.tlast = true;
       d.data = outputs[i];
       dout1.write(d);
+      send_C_len++;
       DWAIT();
     }
     send.write(false);

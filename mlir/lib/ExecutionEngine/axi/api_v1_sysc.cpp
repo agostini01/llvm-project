@@ -49,15 +49,21 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
 
   acc = &dut;
   dmad = &dm;
-  acc->verbose=verbose;
+  acc->verbose = verbose;
   LOG("SystemC dma_init() initializes the DMA");
 }
 
 void dma::dma_free() {
   LOG("SystemC dma_free() deallocates DMA buffers");
-  LOG("++++++++++++++++++++++++++++++++++++++++");
-  LOG("SystemC simulated cycles: " <<  sc_time_stamp());
-  LOG("++++++++++++++++++++++++++++++++++++++++");
+  PLOG("++++++++++++++++++++++++++++++++++++++++");
+  PLOG("SystemC simulated cycles: " << sc_time_stamp());
+  PLOG("DMA Send count: " << dma_send_count);
+  PLOG("DMA Send length: " << dma_send_length);
+  PLOG("DMA Recv count: " << dma_recv_count);
+  PLOG("DMA Recv length: " << dma_recv_length);
+  PLOG("++++++++++++++++++++++++++++++++++++++++");
+  acc->print_profile();
+
   free(dma_input_address);
   free(dma_output_address);
 }
@@ -138,6 +144,8 @@ int dma::dma_start_send(int length, int offset) {
   dmad->input_len = length;
   dmad->input_offset = offset;
   dmad->send = true;
+  PFUNC(dma_send_length += length);
+  PFUNC(dma_send_count++);
   return 0;
 }
 
@@ -156,12 +164,14 @@ int dma::dma_start_recv(int length, int offset) {
   dmad->output_len = length;
   dmad->output_offset = offset;
   dmad->recv = true;
+  PFUNC(dma_recv_count++);
   return 0;
 }
 
 void dma::dma_wait_recv() {
   LOG("SystemC dma_wait_recv() starts simulation");
   sc_start();
+  PFUNC(dma_recv_length += dmad->output_len);
 }
 
 int dma::dma_check_recv() {
