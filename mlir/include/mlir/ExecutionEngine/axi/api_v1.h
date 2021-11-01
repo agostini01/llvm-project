@@ -15,7 +15,9 @@
 
 #ifdef SYSC
 // Easy way to switch between systemC accelerators --- there is probably a better way
-#ifdef ACC_V3
+#ifdef ACC_V4
+#include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v4/accelerator.sc.h"
+#elif  ACC_V3
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v3/accelerator.sc.h"
 #elif  ACC_V2
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v2/accelerator.sc.h"
@@ -48,9 +50,20 @@ struct dma {
 #define PAGE_SIZE getpagesize()
 
 #define m_assert(expr, msg) assert(((void)(msg), (expr)))
+
+#define PROFILE
+#ifdef PROFILE
+#define PLOG(x) std::cout << x << std::endl
+#define PFUNC(x) x
+#else
+#define PLOG(x)
+#define PFUNC(x)
+#endif
+
 // #define VERBOSE_AXI
 #ifdef VERBOSE_AXI
-#define LOG(x) std::cout << x << std::endl
+// #define LOG(x) std::cout << x << std::endl
+#define LOG(x)
 #else
 #define LOG(x)
 #endif
@@ -64,6 +77,13 @@ struct dma {
   unsigned int dma_output_paddress;
   unsigned int *acc_address;
   unsigned int current_input_offset;
+
+  // Profiling Variables
+  unsigned int dma_send_length=0;
+  unsigned int dma_recv_length=0;
+  unsigned int dma_send_count=0;
+  unsigned int dma_recv_count=0;
+
 
   // temp --- need to remove later
   bool verbose;
