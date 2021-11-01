@@ -15,6 +15,10 @@ SC_MODULE(ACCNAME) {
 
   // Debug variables
   int process_blocks;
+  int read_A_len;
+  int read_B_len;
+  int compute_C_len;
+  int send_C_len;
   bool verbose;
 
 #ifndef __SYNTHESIS__
@@ -31,6 +35,8 @@ SC_MODULE(ACCNAME) {
 
   void Send();
 
+  void print_profile();
+
   SC_HAS_PROCESS(ACCNAME);
 
   ACCNAME(sc_module_name name_) : sc_module(name_) {
@@ -44,6 +50,10 @@ SC_MODULE(ACCNAME) {
     reset_signal_is(reset, true);
 
     process_blocks = 0;
+    read_A_len=0;
+    read_B_len=0;
+    compute_C_len=0;
+    send_C_len=0;
     verbose = false;
 
     // #pragma HLS RESOURCE variable=din1 core=AXI4Stream metadata="-bus_bundle
@@ -75,6 +85,15 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
   dmad->din1(din1);
 }
 
+void ACCNAME::print_profile() {
+  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
+  cout << "Read A data_len: " << read_A_len << endl;
+  cout << "Read B data_len: " << read_B_len << endl;
+  cout << "MACs count: " << compute_C_len << endl;
+  cout << "Send C data_len: " << send_C_len << endl;
+  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
+}
+
 void ACCNAME::Recv() {
   wait();
   while (1) {
@@ -83,11 +102,13 @@ void ACCNAME::Recv() {
 
     for (int i = 0; i < 16; i++) {
       inputs[i] = din1.read().data;
+      read_A_len++;
       DWAIT();
     }
 
     for (int i = 0; i < 16; i++) {
       weights[i] = din1.read().data;
+      read_B_len++;
       DWAIT();
     }
 
@@ -129,6 +150,7 @@ void ACCNAME::Compute() {
           int x = inputs[i * 4 + d];
           int y = weights[w * 4 + d];
           acc += x * y;
+          compute_C_len++;
         }
         outputs[i * 4 + w] = acc;
       }
@@ -165,6 +187,7 @@ void ACCNAME::Send() {
         d.tlast = true;
       d.data = outputs[i];
       dout1.write(d);
+      send_C_len++;
       DWAIT();
     }
     send.write(false);

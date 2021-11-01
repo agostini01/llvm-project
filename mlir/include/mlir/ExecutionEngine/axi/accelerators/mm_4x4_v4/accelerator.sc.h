@@ -2,8 +2,9 @@
 #define ACC_H
 
 #include "dma_engine.sc.h"
-#define ACCNAME MM_4x4v3
+#define ACCNAME MM_4x4v4
 
+// #define VERBOSE_ACC
 #ifdef VERBOSE_ACC
 #define ALOG(x) std::cout << x << std::endl
 #else
@@ -47,12 +48,27 @@ struct opcode {
   }
 };
 
+struct code_extension {
+  sc_uint<16> N;
+  sc_uint<16> M;
+  sc_uint<32> K;
+
+  code_extension(sc_uint<32> _packetA, sc_uint<32> _packetB) {
+    N = _packetA.range(15, 0);
+    M = _packetA.range(31, 16);
+    K = _packetB.range(31, 0);
+
+    ALOG("Time: " << sc_time_stamp());
+    ALOG("N: " << N << ", M: " << M << ", K: " << K);
+  }
+};
+
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;
   sc_in<bool> reset;
-  sc_int<32> inputs[4096];
-  sc_int<32> weights[4096];
-  sc_int<32> outputs[4096];
+  sc_int<32> A_buffer[4096];
+  sc_int<32> B_buffer[4096];
+  sc_int<32> C_buffer[4096];
   sc_fifo_in<DATA> din1;
   sc_fifo_out<DATA> dout1;
 
@@ -72,9 +88,13 @@ SC_MODULE(ACCNAME) {
   sc_signal<bool> send;
 #endif
 
+  code_extension acc_args = code_extension(0, 0);
+
   void Recv();
 
-  void Compute();
+  void Compute(int, int, int, int, int);
+
+  void Schedule_Compute();
 
   void Send();
 
@@ -86,24 +106,18 @@ SC_MODULE(ACCNAME) {
     SC_CTHREAD(Recv, clock.pos());
     reset_signal_is(reset, true);
 
-    SC_CTHREAD(Compute, clock.pos());
+    SC_CTHREAD(Schedule_Compute, clock.pos());
     reset_signal_is(reset, true);
 
     SC_CTHREAD(Send, clock.pos());
     reset_signal_is(reset, true);
 
     process_blocks = 0;
-    read_A_len=0;
-    read_B_len=0;
-    compute_C_len=0;
-    send_C_len=0;
+    read_A_len = 0;
+    read_B_len = 0;
+    compute_C_len = 0;
+    send_C_len = 0;
     verbose = false;
-
-    // #pragma HLS RESOURCE variable=din1 core=AXI4Stream metadata="-bus_bundle
-    // S_AXIS_DATA1" port_map={{din1_0 TDATA} {din1_1 TLAST}} #pragma HLS
-    // RESOURCE variable=dout1 core=AXI4Stream metadata="-bus_bundle
-    // M_AXIS_DATA1" port_map={{dout1_0 TDATA} {dout1_1 TLAST}} #pragma HLS
-    // RESET variable=reset
   }
 };
 
@@ -141,47 +155,31 @@ void ACCNAME::Recv() {
   wait();
   while (1) {
     opcode packet(din1.read().data);
+    code_extension op_args(din1.read().data, din1.read().data);
+    acc_args = op_args;
 
     if (packet.read_A) {
-      for (int i = 0; i < 16; i++) {
-        inputs[i] = din1.read().data;
+      unsigned int read_length = op_args.N * op_args.K;
+      for (int i = 0; i < read_length; i++) {
+        A_buffer[i] = din1.read().data;
         read_A_len++;
         DWAIT();
       }
     }
 
     if (packet.read_B) {
-      for (int i = 0; i < 16; i++) {
-        weights[i] = din1.read().data;
+      unsigned int read_length = op_args.M * op_args.K;
+      for (int i = 0; i < read_length; i++) {
+        B_buffer[i] = din1.read().data;
         read_B_len++;
         DWAIT();
       }
     }
 
-    // DEBUG ONLY
-    if (verbose) {
-      cout << "=========================" << endl;
-      cout << "BLOCK: " << process_blocks++ << endl;
-      cout << "=========================" << endl;
-      for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++)
-          cout << inputs[i * 4 + j] << ",";
-        cout << endl;
-      }
-      cout << "=========================" << endl;
-      for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++)
-          cout << weights[i * 4 + j] << ",";
-        cout << endl;
-      }
-      cout << "=========================" << endl;
-    }
-    // DEBUG ONLY
-
     // Computes C if true
     if (packet.compute_C) {
-      wait();
       compute.write(true);
+      wait();
     }
 
     while (compute)
@@ -189,8 +187,8 @@ void ACCNAME::Recv() {
 
     // Sends then clears C if true
     if (packet.send_C) {
-      wait();
       send.write(true);
+      wait();
     }
 
     while (send)
@@ -200,35 +198,34 @@ void ACCNAME::Recv() {
   }
 }
 
-void ACCNAME::Compute() {
+void ACCNAME::Compute(int N, int M, int K, int in_stride, int out_stride) {
+  for (int n = 0; n < 4; n++) {
+    for (int m = 0; m < 4; m++) {
+      int acc = 0;
+      for (int k = 0; k < 4; k++) {
+        int a_data = A_buffer[(N + n) * in_stride + K + k];
+        int b_data = B_buffer[(M + m) * in_stride + K + k];
+        acc += a_data * b_data;
+        compute_C_len++;
+      }
+      C_buffer[(N + n) * out_stride + M + m] += acc;
+    }
+  }
+}
+
+void ACCNAME::Schedule_Compute() {
   wait();
   while (1) {
     while (!compute)
       wait();
-    for (int i = 0; i < 4; i++) {
-      for (int w = 0; w < 4; w++) {
-        int acc = 0;
-        for (int d = 0; d < 4; d++) {
-          int x = inputs[i * 4 + d];
-          int y = weights[w * 4 + d];
-          acc += x * y;
-          compute_C_len++;
-        }
-        outputs[i * 4 + w] += acc;
-      }
-    }
 
-    // DEBUG ONLY
-    if (verbose) {
-      cout << "=========================" << endl;
-      for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++)
-          cout << outputs[i * 4 + j] << ",";
-        cout << endl;
+    for (int n = 0; n < acc_args.N; n += 4) {
+      for (int m = 0; m < acc_args.M; m += 4) {
+        for (int k = 0; k < acc_args.K; k += 4) {
+          Compute(n, m, k, acc_args.K, acc_args.M);
+        }
       }
-      cout << "=========================" << endl;
     }
-    // DEBUG ONLY
 
     wait();
     compute.write(false);
@@ -241,16 +238,19 @@ void ACCNAME::Send() {
   while (1) {
     while (!send)
       wait();
-    for (int i = 0; i < 16; i++) {
-      DATA d;
-      d.tlast = false;
-      if (i == 15)
-        d.tlast = true;
-      d.data = outputs[i];
-      dout1.write(d);
-      outputs[i] = 0; // Clears after sends
-      send_C_len++;
-      DWAIT();
+
+    for (int n = 0; n < acc_args.N; n++) {
+      for (int m = 0; m < acc_args.M; m++) {
+        DATA d;
+        d.tlast = false;
+        d.data = C_buffer[n * acc_args.M + m];
+        if (n + 1 == acc_args.N && m + 1 == acc_args.M)
+          d.tlast = true;
+        dout1.write(d);
+        C_buffer[n * acc_args.M + m] = 0;
+        send_C_len++;
+        DWAIT();
+      }
     }
     send.write(false);
     wait();
