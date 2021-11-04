@@ -86,13 +86,13 @@ func @main() {
   call @dma_init(%c0, %c0, %c1000, %c0, %c1000) : (index,index,index,index,index ) -> ()
   
   // Sizes of in and out buffers
-  %in1_lenght = muli %ts_a1, %ts_a2 : i64
-  %in2_lenght = muli %ts_a1, %ts_a2 : i64
+  %in1_lenght = arith.muli %ts_a1, %ts_a2 : i64
+  %in2_lenght = arith.muli %ts_a1, %ts_a2 : i64
   %total_input_lenght = arith.addi %in1_lenght, %in2_lenght : i64
-  %out_lenght = muli %ts_o1, %ts_o2 : i64
+  %out_lenght = arith.muli %ts_o1, %ts_o2 : i64
   
   %in1_offset = arith.constant 0 : i64  // offset on the input buffer
-  %in2_offset = muli %c1_0, %in1_lenght : i64  // offset on the input buffer
+  %in2_offset = arith.muli %c1_0, %in1_lenght : i64  // offset on the input buffer
   %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
   // Copy data to be transfered and set the transfer size
