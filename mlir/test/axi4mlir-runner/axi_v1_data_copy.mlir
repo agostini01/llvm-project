@@ -10,9 +10,6 @@
 // MLIR Runner
 func private @print_memref_f32(memref<*xf32>)
 
-// AXI4MLIR types
-!ptr_type = type !llvm.ptr<i8>
-
 // AXI4MLIR functions
 func private @dma_init(index, index, index, index, index) -> ()
 func private @dma_free() -> ()
@@ -123,4 +120,3 @@ func @main() {
 //CHECK: dma_wait_send
 //CHECK: dma_wait_recv
 //CHECK: dma_free
-//CHECK: Error here on purpose!
