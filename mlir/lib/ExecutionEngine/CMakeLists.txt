@@ -246,15 +246,27 @@ add_dependencies(mlir_axi_runner_utils
 )
 target_link_libraries(mlir_axi_runner_utils PUBLIC axi_api_v1) # Needed to call implemented functions
 
-add_mlir_library(mlir_syscaxi_runner_utils
-  SHARED
-  AxiUtilsSysc.cpp
-  EXCLUDE_FROM_LIBMLIR
-)
-target_compile_definitions(mlir_syscaxi_runner_utils PRIVATE mlir_syscaxi_runner_utils_EXPORTS)
-add_dependencies(mlir_syscaxi_runner_utils
-  axi_api_v1_sysc
-)
-target_link_libraries(mlir_syscaxi_runner_utils PUBLIC axi_api_v1_sysc) # Needed to call implemented functions
-set(CMAKE_CXX_FLAGS "${tmpcxxflags}")  # Revert to normal CXX flags
 
+# Only generate systemc libraries for native builds
+if(AXI_CROSSCOMPILING)
+  message (STATUS "Cross-compiling, SystemC runner libraries are disabed")
+else()
+  message (STATUS "Not Cross-compiling, SystemC runner libraries are enabled")
+  if(DEFINED ENV{SYSTEMC_HOME})
+    message (STATUS "SYSTEMC_HOME is set: $ENV{SYSTEMC_HOME} -- building sysc runner libs")
+    
+    add_mlir_library(mlir_syscaxi_runner_utils
+      SHARED
+      AxiUtilsSysc.cpp
+      EXCLUDE_FROM_LIBMLIR
+    )
+    target_compile_definitions(mlir_syscaxi_runner_utils PRIVATE mlir_syscaxi_runner_utils_EXPORTS)
+    add_dependencies(mlir_syscaxi_runner_utils
+      axi_api_v1_sysc
+    )
+    target_link_libraries(mlir_syscaxi_runner_utils PUBLIC axi_api_v1_sysc) # Needed to call implemented functions
+
+  endif()
+endif()
+
+set(CMAKE_CXX_FLAGS "${tmpcxxflags}")  # Revert to normal CXX flags

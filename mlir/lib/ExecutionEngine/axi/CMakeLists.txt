@@ -21,21 +21,31 @@ add_mlir_library(axi_api_v1
   EXCLUDE_FROM_LIBMLIR
 )
 
-add_mlir_library(axi_api_v1_sysc
-  SHARED
-  api_v1_sysc.cpp
-
-  EXCLUDE_FROM_LIBMLIR
-)
-
-# Fixing compiler flags for SystemC --- expects env var "SYSTEMC_HOME" to point to SystemC install
-target_include_directories(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/include/)
-set_target_properties(axi_api_v1_sysc PROPERTIES COMPILE_FLAGS "")
-target_link_libraries(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
-
 set(tmpcxxflags ${CMAKE_CXX_FLAGS})
 string(REPLACE "-Werror=global-constructors" "" FIXED  ${CMAKE_CXX_FLAGS})
 string(REPLACE "-Wcast-qual" "-Wno-vla-extension" FIXED  ${FIXED})
+  
+
+if(AXI_CROSSCOMPILING)
+  message (STATUS "Cross-compiling, SystemC api libraries are disabed")
+else()
+  message (STATUS "Not Cross-compiling, SystemC api libraries are enabled")
+  if(DEFINED ENV{SYSTEMC_HOME})
+    message (STATUS "SYSTEMC_HOME is set: $ENV{SYSTEMC_HOME} -- building sysc api libs")
+
+      add_mlir_library(axi_api_v1_sysc
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+
+      target_include_directories(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc PROPERTIES COMPILE_FLAGS "")
+      target_link_libraries(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+  endif()
+endif()
+
 set(CMAKE_CXX_FLAGS "${FIXED}")
 
 #No additional properties for now
