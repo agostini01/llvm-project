@@ -89,6 +89,8 @@ func @main() {
   scf.for %arg3 = %c0 to %c16 step %c4 {
     scf.for %arg4 = %c0 to %c32 step %c4 {
       scf.for %arg5 = %c0 to %c8 step %c4 {
+
+        // Slice the memory references
         %2 = memref.subview %A_typed[%arg3, %arg5] [%c4, %c4] [1, 1] : memref<16x8xf32> to memref<?x?xf32, #map2>
         %5 = memref.subview %B_typed[%arg5, %arg4] [%c4, %c4] [1, 1] : memref<8x32xf32> to memref<?x?xf32, #map4>
         %8 = memref.subview %C_typed[%arg3, %arg4] [%c4, %c4] [1, 1] : memref<16x32xf32> to memref<?x?xf32, #map4>

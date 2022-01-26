@@ -85,9 +85,9 @@ dma_copy_from_outbuffer(unsigned int *host_dst_address, int data_length,
 //-----------------BUFFER Functions-----------------
 // Copy data into the Input Buffer (length to write, offset to write to) returns
 // 0 if successful
-extern "C" MLIR_AXIRUNNERUTILS_EXPORT int
-mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src, int data_length,
-                          int offset);
+template <typename T>
+int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<T> &src, int data_length,
+                              int offset);
 
 // Copy data from the Output Buffer (length to read, offset to read from)
 // returns 0 if successful
@@ -100,6 +100,9 @@ copy_to_inbuffer_f32(int64_t rank, void *ptr, int64_t offset);
 
 extern "C" MLIR_RUNNERUTILS_EXPORT int
 copy_from_outbuffer_f32(int64_t rank, void *ptr, int64_t offset);
+
+extern "C" MLIR_RUNNERUTILS_EXPORT int
+copy_to_inbuffer_i32(int64_t rank, void *ptr, int64_t offset);
 
 //================================================================================================================
 

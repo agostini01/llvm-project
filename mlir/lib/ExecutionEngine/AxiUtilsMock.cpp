@@ -58,8 +58,16 @@ extern "C" int dma_copy_from_outbuffer(unsigned int *host_dst_address,
   return 0;
 }
 
-extern "C" int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src,
-                                         int data_length, int offset) {
+template <>
+int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src,
+                              int data_length, int offset) {
+  std::cout << "Called: " << __func__ << std::endl;
+  return 0;
+}
+
+template <>
+int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<int> &src,
+                              int data_length, int offset) {
   std::cout << "Called: " << __func__ << std::endl;
   return 0;
 }
@@ -72,6 +80,11 @@ extern "C" int mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
 
 extern "C" int copy_to_inbuffer_f32(int64_t rank, void *ptr, int64_t offset) {
   UnrankedMemRefType<float> descriptor = {rank, ptr};
+  return 0;
+}
+
+extern "C" int copy_to_inbuffer_i32(int64_t rank, void *ptr, int64_t offset) {
+  UnrankedMemRefType<int> descriptor = {rank, ptr};
   return 0;
 }
 

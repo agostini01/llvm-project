@@ -183,8 +183,16 @@ template int dma::mlir_dma_copy_to_inbuffer<float>(
     float *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
     const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
 
+template int dma::mlir_dma_copy_to_inbuffer<int>(
+    int *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
+    const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
+
 template int dma::mlir_dma_copy_from_outbuffer<float>(
     float *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
+    const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
+
+template int dma::mlir_dma_copy_from_outbuffer<int>(
+    int *mr_base, int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
     const int64_t *mr_sizes, const int64_t *mr_strides, int dma_offset);
 
 int dma::dma_start_send(int length, int offset) {
