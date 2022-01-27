@@ -41,6 +41,26 @@ func @alloc_2d_filled_f32(%s1 : index, %s2 : index, %f : f32) -> memref<?x?xf32>
   return %buf : memref<?x?xf32>
 }
 
+func @alloc_2d_filled_inc_f32(%arg0: index, %arg1: index, %arg2: f32) -> memref<?x?xf32> {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %cst = arith.constant 1.000000e+02 : f32
+  %0 = memref.alloc(%arg0, %arg1) : memref<?x?xf32>
+  linalg.fill(%arg2, %0) : f32, memref<?x?xf32>
+  scf.for %arg3 = %c0 to %arg0 step %c1 {
+    scf.for %arg4 = %c0 to %arg1 step %c1 {
+      %1 = arith.index_cast %arg3 : index to i32
+      %2 = arith.index_cast %arg4 : index to i32
+      %3 = arith.sitofp %1 : i32 to f32
+      %4 = arith.sitofp %2 : i32 to f32
+      %5 = arith.mulf %3, %cst : f32
+      %6 = arith.addf %4, %5 : f32
+      memref.store %6, %0[%arg3, %arg4] : memref<?x?xf32>
+    }
+  }
+  return %0 : memref<?x?xf32>
+}
+
 func @main() {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -63,7 +83,7 @@ func @main() {
   %cst_0 = arith.constant 0.000000e+00 : f32
 
 
-  %A = call @alloc_2d_filled_f32(%c4, %c4, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
+  %A = call @alloc_2d_filled_inc_f32(%c4, %c4, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
   %B = call @alloc_2d_filled_f32(%c4, %c4, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
   %C = call @alloc_2d_filled_f32(%c4, %c4, %cst_0) : (index, index, f32) -> (memref<?x?xf32>)
   
