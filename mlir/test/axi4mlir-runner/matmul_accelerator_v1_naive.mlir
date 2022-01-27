@@ -44,6 +44,32 @@ func @alloc_2d_filled_f32(%s1 : index, %s2 : index, %f : f32) -> memref<?x?xf32>
   return %buf : memref<?x?xf32>
 }
 
+func @alloc_2d_filled_inc_f32(%arg0: index, %arg1: index, %arg2: f32) -> memref<?x?xf32> {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %cst = arith.constant 1.000000e+02 : f32
+  %0 = memref.alloc(%arg0, %arg1) : memref<?x?xf32>
+  linalg.fill(%arg2, %0) : f32, memref<?x?xf32>
+  scf.for %arg3 = %c0 to %arg0 step %c1 {
+    scf.for %arg4 = %c0 to %arg1 step %c1 {
+      %1 = arith.index_cast %arg3 : index to i32
+      %2 = arith.index_cast %arg4 : index to i32
+      %3 = arith.sitofp %1 : i32 to f32
+      %4 = arith.sitofp %2 : i32 to f32
+      %5 = arith.mulf %3, %cst : f32
+      %6 = arith.addf %4, %5 : f32
+      memref.store %6, %0[%arg3, %arg4] : memref<?x?xf32>
+    }
+  }
+  return %0 : memref<?x?xf32>
+}
+
+#id_2d = affine_map<(i, j) -> (i, j)>
+#pointwise_2d_trait = {
+  indexing_maps = [#id_2d, #id_2d],
+  iterator_types = ["parallel", "parallel"]
+}
+
 func @main() {
   %c2 = arith.constant 2 : index
   %c4 = arith.constant 4 : index
@@ -68,17 +94,20 @@ func @main() {
   // Initializes the DMA
   %idx = arith.constant 0 : index
 
-  %A = call @alloc_2d_filled_f32(%c16, %c8, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
+  %A = call @alloc_2d_filled_inc_f32(%c16, %c8, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
   %B = call @alloc_2d_filled_f32(%c8, %c32, %cst_1) : (index, index, f32) -> (memref<?x?xf32>)
   %C = call @alloc_2d_filled_f32(%c16, %c32, %cst_0) : (index, index, f32) -> (memref<?x?xf32>)
+  %Ctmp = call @alloc_2d_filled_f32(%c16, %c32, %cst_0) : (index, index, f32) -> (memref<?x?xf32>)
 
   %A_typed = memref.cast %A: memref<?x?xf32> to memref<16x8xf32>
   %B_typed = memref.cast %B: memref<?x?xf32> to memref<8x32xf32>
   %C_typed = memref.cast %C: memref<?x?xf32> to memref<16x32xf32>
+  %Ctmp_typed = memref.cast %Ctmp: memref<?x?xf32> to memref<16x32xf32>
   
   %in1 = memref.cast %A_typed: memref<16x8xf32> to memref<*xf32>
   %in2 = memref.cast %B_typed: memref<8x32xf32> to memref<*xf32>
   %out1 = memref.cast %C_typed: memref<16x32xf32> to memref<*xf32>
+  %outtmp = memref.cast %Ctmp_typed: memref<16x32xf32> to memref<*xf32>
 
   call @print_memref_f32(%in1) : (memref<*xf32>) -> ()
   call @print_memref_f32(%in2) : (memref<*xf32>) -> ()
@@ -94,6 +123,7 @@ func @main() {
         %2 = memref.subview %A_typed[%arg3, %arg5] [%c4, %c4] [1, 1] : memref<16x8xf32> to memref<?x?xf32, #map2>
         %5 = memref.subview %B_typed[%arg5, %arg4] [%c4, %c4] [1, 1] : memref<8x32xf32> to memref<?x?xf32, #map4>
         %8 = memref.subview %C_typed[%arg3, %arg4] [%c4, %c4] [1, 1] : memref<16x32xf32> to memref<?x?xf32, #map4>
+        %42 = memref.subview %Ctmp_typed[%arg3, %arg4] [%c4, %c4] [1, 1] : memref<16x32xf32> to memref<?x?xf32, #map4>
         
         // Call that will be replaced
         // linalg.matmul ins(%2, %5 : memref<?x?xf32, #map2>, memref<?x?xf32, #map4>) outs(%8 : memref<?x?xf32, #map4>)
@@ -101,10 +131,10 @@ func @main() {
         %in1_tile = memref.cast %2: memref<?x?xf32, #map2> to memref<*xf32>
         %in2_tile = memref.cast %5: memref<?x?xf32, #map4> to memref<*xf32>
         %out1_tile = memref.cast %8: memref<?x?xf32, #map4> to memref<*xf32>
+        %out1_tile_tmp = memref.cast %42: memref<?x?xf32, #map4> to memref<*xf32>
   
-        // call @print_memref_f32(%in1_tile) : (memref<*xf32>) -> ()
-        // call @print_memref_f32(%in2_tile) : (memref<*xf32>) -> ()
-        // call @print_memref_f32(%out1_tile) : (memref<*xf32>) -> ()
+        call @print_memref_f32(%in1_tile) : (memref<*xf32>) -> ()
+        call @print_memref_f32(%in2_tile) : (memref<*xf32>) -> ()
 
         // Sizes of in and out buffers
         %inA_lenght = arith.muli %ts_a1, %ts_a2 : i64
@@ -114,7 +144,7 @@ func @main() {
 
         %inA_offset = arith.constant 0 : i64  // offset on the input buffer
         %inB_offset = arith.muli %c1_0, %inA_lenght : i64  // offset on the input buffer
-        %out_offset = arith.constant 0 : i64 // offset on the output buffe
+        %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
         // Copy data to be transfer
         call @copy_to_inbuffer_f32(%in1_tile, %inA_offset) : (memref<*xf32>, i64) -> (i64)
@@ -127,8 +157,18 @@ func @main() {
         call @dma_wait_recv () : () -> ()
         
         // Copy C tile from DMA output buffer
-        call @copy_from_outbuffer_f32 (%out1_tile, %inB_offset) : (memref<*xf32>, i64) -> (i64)
-        
+        call @copy_from_outbuffer_f32 (%out1_tile_tmp, %out_offset) : (memref<*xf32>, i64) -> (i64)
+        call @print_memref_f32(%out1_tile_tmp) : (memref<*xf32>) -> ()
+
+        // Accumulate on the output
+        linalg.generic #pointwise_2d_trait
+          ins(%42: memref<?x?xf32, #map4>)
+          outs(%8 : memref<?x?xf32, #map4>) {
+        ^bb0(%x: f32, %y: f32):   // no predecessors
+          %res = arith.addf %x, %y : f32
+          linalg.yield %res : f32
+        }
+        call @print_memref_f32(%out1_tile) : (memref<*xf32>) -> ()
       }
     }
   }
