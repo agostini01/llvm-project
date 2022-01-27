@@ -97,38 +97,46 @@ int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                    const int64_t *mr_strides, int dma_offset) {
   std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
 
-  int64_t total_size = 1;
-  for (int64_t i = 0; i < mr_rank; i++) {
-    total_size *= mr_sizes[i];
-  }
+  auto index = 0;
+  auto stride_i = mr_strides[0];
+  auto stride_j = mr_strides[1];
 
-  for (int64_t i = 0; i < total_size; i++) {
-    *(dma_get_inbuffer() + dma_offset + i) = mr_base[i + mr_offset];
-  }
+  // From 0 to size_j
+  auto location = mr_offset + stride_i * 0 + stride_j * 0;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 0 + stride_j * 1;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 0 + stride_j * 2;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 0 + stride_j * 3;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
 
-  // TODO must consider sizes and strides during copy
-  //   template <typename T>
-  // void MemRefDataPrinter<T>::print(std::ostream &os, T *base, int64_t dim,
-  //                                  int64_t rank, int64_t offset,
-  //                                  const int64_t *sizes, const int64_t
-  //                                  *strides) {
-  //   if (dim == 0) {
-  //     os << base[offset];
-  //     return;
-  //   }
-  //   printFirst(os, base, dim, rank, offset, sizes, strides);
-  //   for (unsigned i = 1; i + 1 < sizes[0]; ++i) {
-  //     printSpace(os, rank - dim + 1);
-  //     print(os, base, dim - 1, rank, offset + i * strides[0], sizes + 1,
-  //           strides + 1);
-  //     os << ", ";
-  //     if (dim > 1)
-  //       os << "\n";
-  //   }
-  //   if (sizes[0] <= 1)
-  //     return;
-  //   printLast(os, base, dim, rank, offset, sizes, strides);
-  // }
+  location = mr_offset + stride_i * 1 + stride_j * 0;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 1 + stride_j * 1;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 1 + stride_j * 2;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 1 + stride_j * 3;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+
+  location = mr_offset + stride_i * 2 + stride_j * 0;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 2 + stride_j * 1;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 2 + stride_j * 2;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 2 + stride_j * 3;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+
+  location = mr_offset + stride_i * 3 + stride_j * 0;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 3 + stride_j * 1;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 3 + stride_j * 2;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
+  location = mr_offset + stride_i * 3 + stride_j * 3;
+  *(dma_get_inbuffer() + dma_offset + index++) = mr_base[location];
 
   return 0;
 }
@@ -142,39 +150,46 @@ int dma::mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim,
 
   std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
 
-  int64_t total_size = 1;
-  for (int64_t i = 0; i < mr_rank; i++) {
-    total_size *= mr_sizes[i];
-  }
+  auto index = 0;
+  auto stride_i = mr_strides[0];
+  auto stride_j = mr_strides[1];
 
-  for (int64_t i = 0; i < total_size; i++) {
-    mr_base[i + mr_offset] = *(dma_get_outbuffer() + dma_offset + i);
-  }
+  // From 0 to size_j
+  auto location = mr_offset + stride_i * 0 + stride_j * 0;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 0 + stride_j * 1;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 0 + stride_j * 2;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 0 + stride_j * 3;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
 
-  // TODO must consider sizes and strides during copy
-  //   template <typename T>
-  // void MemRefDataPrinter<T>::print(std::ostream &os, T *base, int64_t dim,
-  //                                  int64_t rank, int64_t offset,
-  //                                  const int64_t *sizes, const int64_t
-  //                                  *strides) {
-  //   if (dim == 0) {
-  //     os << base[offset];
-  //     return;
-  //   }
-  //   printFirst(os, base, dim, rank, offset, sizes, strides);
-  //   for (unsigned i = 1; i + 1 < sizes[0]; ++i) {
-  //     printSpace(os, rank - dim + 1);
-  //     print(os, base, dim - 1, rank, offset + i * strides[0], sizes + 1,
-  //           strides + 1);
-  //     os << ", ";
-  //     if (dim > 1)
-  //       os << "\n";
-  //   }
-  //   if (sizes[0] <= 1)
-  //     return;
-  //   printLast(os, base, dim, rank, offset, sizes, strides);
-  // }
+  location = mr_offset + stride_i * 1 + stride_j * 0;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 1 + stride_j * 1;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 1 + stride_j * 2;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 1 + stride_j * 3;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
 
+  location = mr_offset + stride_i * 2 + stride_j * 0;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 2 + stride_j * 1;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 2 + stride_j * 2;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 2 + stride_j * 3;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+
+  location = mr_offset + stride_i * 3 + stride_j * 0;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 3 + stride_j * 1;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 3 + stride_j * 2;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
+  location = mr_offset + stride_i * 3 + stride_j * 3;
+  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
   return 0;
 }
 
