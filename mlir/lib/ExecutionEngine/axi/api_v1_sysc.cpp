@@ -91,13 +91,12 @@ int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
 }
 
 // TODO dst is hardcoded for integer
-template <typename T> inline
-void copy_memref_to_array(T *mr_base,
-                       int64_t mr_dim, int64_t mr_rank, int64_t mr_offset,
-                       const int64_t *mr_sizes, const int64_t *mr_strides,
-                       unsigned int *dst_base, const int64_t dst_offset)
-
-{
+template <typename T>
+inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
+                                 int64_t mr_offset, const int64_t *mr_sizes,
+                                 const int64_t *mr_strides,
+                                 unsigned int *dst_base,
+                                 const int64_t dst_offset) {
   int64_t rank = mr_rank;
   // Handle empty shapes -> nothing to copy.
   for (int rankp = 0; rankp < rank; ++rankp)
@@ -112,10 +111,10 @@ void copy_memref_to_array(T *mr_base,
   dstPtr = dst_base + dst_offset;
 
   if (rank == 0) {
-    // memcpy(dstPtr, srcPtr, elemSize); //does not work
-    *dstPtr = *srcPtr; // option 1
-    // *dstPtr = mr_base[mr_offset]; // option 2
-    // dst_base[dst_offset] = mr_base[mr_offset]; // option 3
+    // memcpy(dstPtr, srcPtr, elemSize); // broken
+    *dstPtr = *srcPtr; // opt 1
+    // *dstPtr = mr_base[mr_offset]; // opt 2
+    // dst_base[dst_offset] = mr_base[mr_offset]; // opt 3
     return;
   }
 
@@ -134,10 +133,10 @@ void copy_memref_to_array(T *mr_base,
   int64_t volatile writeIndex = 0;
   for (;;) {
     // Copy over the element, byte by byte.
-    // memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize); // does not work
-    *(dstPtr +writeIndex) = *(srcPtr +readIndex); //option 1
-    // *(dstPtr +writeIndex) = mr_base[mr_offset +readIndex]; //option 2
-    // dst_base[dst_offset+writeIndex] = mr_base[mr_offset +readIndex]; //option 3
+    // memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize); // broken
+    *(dstPtr + writeIndex) = *(srcPtr + readIndex); // opt 1
+    // *(dstPtr +writeIndex) = mr_base[mr_offset +readIndex]; // opt 2
+    // dst_base[dst_offset+writeIndex] = mr_base[mr_offset +readIndex]; // opt 3
 
     // Advance index and read position.
     for (int64_t axis = rank - 1; axis >= 0; --axis) {
@@ -158,7 +157,8 @@ void copy_memref_to_array(T *mr_base,
       readIndex -= mr_sizes[axis] * srcStrides[axis];
       // writeIndex -= dst.sizes[axis] * dstStrides[axis];
       // We arrived in the last element of the last axis, we must decrement
-      // writeIndex by 1 to fix the additional inc without write of this iteration`
+      // writeIndex by 1 to fix the additional inc without write of this
+      // iteration`
       writeIndex -= 1;
     }
   }
@@ -171,10 +171,85 @@ int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                    const int64_t *mr_strides, int dma_offset) {
   std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
 
-  copy_memref_to_array(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes, mr_strides,
-                    dma_get_inbuffer(), dma_offset);
+  copy_memref_to_array(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
+                       mr_strides, dma_get_inbuffer(), dma_offset);
 
   return 0;
+}
+
+// TODO dst is hardcoded for integer
+template <typename T>
+inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
+                                 int64_t mr_offset, const int64_t *mr_sizes,
+                                 const int64_t *mr_strides,
+                                 unsigned int *src_base,
+                                 const int64_t src_offset) {
+  int64_t rank = mr_rank;
+  // Handle empty shapes -> nothing to copy.
+  for (int rankp = 0; rankp < rank; ++rankp)
+    if (mr_sizes[rankp] == 0)
+      return;
+
+  T *dstPtr;
+  dstPtr = mr_base + mr_offset;
+
+  // TODO make templated
+  unsigned int *srcPtr;
+  srcPtr = src_base + src_offset;
+
+  if (rank == 0) {
+    // memcpy(dstPtr, srcPtr, elemSize); // broken
+    *dstPtr = *srcPtr; // opt 1
+    // *dstPtr = mr_base[mr_offset]; // opt 2
+    // dst_base[dst_offset] = mr_base[mr_offset]; // opt 3
+    return;
+  }
+
+  int64_t *indices = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+  int64_t *srcStrides = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+  int64_t *dstStrides = static_cast<int64_t *>(alloca(sizeof(int64_t) * rank));
+
+  // Initialize index and scale strides.
+  for (int rankp = 0; rankp < rank; ++rankp) {
+    indices[rankp] = 0;
+    dstStrides[rankp] = mr_strides[rankp];
+    srcStrides[rankp] = 1;
+  }
+
+  int64_t volatile readIndex = 0;
+  int64_t volatile writeIndex = 0;
+  for (;;) {
+    // Copy over the element, byte by byte.
+    // memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize); // broken
+    *(dstPtr + writeIndex) = *(srcPtr + readIndex); // opt 1
+    // *(dstPtr +writeIndex) = mr_base[mr_offset +readIndex]; // opt 2
+    // dst_base[dst_offset+writeIndex] = mr_base[mr_offset +readIndex]; // opt 3
+
+    // Advance index and read position.
+    for (int64_t axis = rank - 1; axis >= 0; --axis) {
+      // Advance at current axis.
+      auto newIndex = ++indices[axis];
+      // readIndex += srcStrides[axis];
+      writeIndex += dstStrides[axis];
+      readIndex += 1; // Always increment, it is a flattened dense array
+
+      // If this is a valid index, we have our next index, so continue copying.
+      if (mr_sizes[axis] != newIndex)
+        break;
+      // We reached the end of this axis. If this is axis 0, we are done.
+      if (axis == 0)
+        return;
+      // Else, reset to 0 and undo the advancement of the linear index that
+      // this axis had. Then continue with the axis one outer.
+      indices[axis] = 0;
+      // readIndex -= mr_sizes[axis] * srcStrides[axis];
+      writeIndex -= mr_sizes[axis] * dstStrides[axis];
+      // We arrived in the last element of the last axis, we must decrement
+      // writeIndex by 1 to fix the additional inc without write of this
+      // iteration`
+      readIndex -= 1;
+    }
+  }
 }
 
 template <typename T>
@@ -186,46 +261,9 @@ int dma::mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim,
 
   std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
 
-  auto index = 0;
-  auto stride_i = mr_strides[0];
-  auto stride_j = mr_strides[1];
+  copy_array_to_memref(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
+                       mr_strides, dma_get_outbuffer(), dma_offset);
 
-  // From 0 to size_j
-  auto location = mr_offset + stride_i * 0 + stride_j * 0;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 0 + stride_j * 1;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 0 + stride_j * 2;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 0 + stride_j * 3;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-
-  location = mr_offset + stride_i * 1 + stride_j * 0;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 1 + stride_j * 1;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 1 + stride_j * 2;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 1 + stride_j * 3;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-
-  location = mr_offset + stride_i * 2 + stride_j * 0;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 2 + stride_j * 1;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 2 + stride_j * 2;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 2 + stride_j * 3;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-
-  location = mr_offset + stride_i * 3 + stride_j * 0;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 3 + stride_j * 1;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 3 + stride_j * 2;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
-  location = mr_offset + stride_i * 3 + stride_j * 3;
-  mr_base[location] = *(dma_get_outbuffer() + dma_offset + index++);
   return 0;
 }
 
