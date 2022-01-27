@@ -143,7 +143,6 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
       // Advance at current axis.
       auto newIndex = ++indices[axis];
       readIndex += srcStrides[axis];
-      // writeIndex += dstStrides[axis];
       writeIndex += 1; // Always increment, it is a flattened dense array
       // If this is a valid index, we have our next index, so continue copying.
       if (mr_sizes[axis] != newIndex)
@@ -155,8 +154,7 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
       // this axis had. Then continue with the axis one outer.
       indices[axis] = 0;
       readIndex -= mr_sizes[axis] * srcStrides[axis];
-      // writeIndex -= dst.sizes[axis] * dstStrides[axis];
-      // We arrived in the last element of the last axis, we must decrement
+      // We arrived in the last element of the current axis, we must decrement
       // writeIndex by 1 to fix the additional inc without write of this
       // iteration`
       writeIndex -= 1;
@@ -229,7 +227,6 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     for (int64_t axis = rank - 1; axis >= 0; --axis) {
       // Advance at current axis.
       auto newIndex = ++indices[axis];
-      // readIndex += srcStrides[axis];
       writeIndex += dstStrides[axis];
       readIndex += 1; // Always increment, it is a flattened dense array
 
@@ -242,9 +239,8 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
       // Else, reset to 0 and undo the advancement of the linear index that
       // this axis had. Then continue with the axis one outer.
       indices[axis] = 0;
-      // readIndex -= mr_sizes[axis] * srcStrides[axis];
       writeIndex -= mr_sizes[axis] * dstStrides[axis];
-      // We arrived in the last element of the last axis, we must decrement
+      // We arrived in the last element of the current axis, we must decrement
       // writeIndex by 1 to fix the additional inc without write of this
       // iteration`
       readIndex -= 1;
