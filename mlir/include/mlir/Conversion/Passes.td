@@ -837,7 +837,7 @@ def ConvertArmNeon2dToIntr : Pass<"arm-neon-2d-to-intr", "FuncOp"> {
 // LinalgToAXI4MLIR
 //===----------------------------------------------------------------------===//
 
-def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "FuncOp"> {
+def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
   let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
   let dependentDialects = [
