@@ -833,5 +833,23 @@ def ConvertArmNeon2dToIntr : Pass<"arm-neon-2d-to-intr", "FuncOp"> {
   let dependentDialects = ["arm_neon::ArmNeonDialect", "vector::VectorDialect"];
 }
 
+//===----------------------------------------------------------------------===//
+// LinalgToAXI4MLIR
+//===----------------------------------------------------------------------===//
+
+def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "FuncOp"> {
+  let summary = "Convert Linalg Matmul into driver to accelerator";
+  let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect"
+  ];
+  let options = [
+    Option<"tileSize", "tile-size", "unsigned", /*default=*/"",
+           "Use this tile size for all loops">,
+  ];
+}
+
 
 #endif // MLIR_CONVERSION_PASSES
