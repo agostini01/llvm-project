@@ -1,9 +1,6 @@
 // RUN: mlir-opt %s -test-linalg-to-axi4mlir \
 // RUN: | FileCheck %s
 
-
-
-
 // CHECK-LABEL: func @main(
 func @main(%A: memref<1584x1584xf32>, %B: memref<1584x1584xf32>, %C: memref<1584x1584xf32>) {
   linalg.matmul

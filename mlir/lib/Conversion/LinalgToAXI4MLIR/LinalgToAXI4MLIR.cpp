@@ -26,9 +26,11 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/IR/FunctionInterfaces.h"
 
 using namespace mlir;
+using namespace mlir::linalg;
 
 //===----------------------------------------------------------------------===//
 // AXI4MLIR Runtime C API declaration.
@@ -57,6 +59,9 @@ static constexpr const char *kDmaWaitRecv = "dma_wait_recv";
 
 //   LinalgToAXI4MLIROptions options;
 // };
+
+// Marker used as attribute name in generated Linalg rewriting transformations.
+const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
 
 static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
 
@@ -93,6 +98,40 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   addFuncDecl(kDmaWaitRecv, FunctionType::get(ctx, {}, {}));
 }
 
+/// Apply tiling patterns to matmul operations with the correct attribute
+static void applyPatterns(FuncOp funcOp) {
+  MLIRContext *ctx = funcOp.getContext();
+  RewritePatternSet patterns(ctx);
+
+  patterns.add<LinalgTilingPattern>(
+      MatmulOp::getOperationName(), ctx,
+      LinalgTilingOptions().setTileSizes({2000, 3000, 4000}),
+      LinalgTransformationFilter(StringAttr::get(ctx, "MEM"),
+                                 StringAttr::get(ctx, "L3")));
+  patterns.add<LinalgTilingPattern>(
+      MatmulOp::getOperationName(), ctx,
+      LinalgTilingOptions().setTileSizes({200, 300, 400}),
+      LinalgTransformationFilter(StringAttr::get(ctx, "L3"),
+                                 StringAttr::get(ctx, "L2")));
+  patterns.add<LinalgTilingPattern>(
+      MatmulOp::getOperationName(), ctx,
+      LinalgTilingOptions().setTileSizes({20, 30, 40}),
+      LinalgTransformationFilter(StringAttr::get(ctx, "L2"),
+                                 StringAttr::get(ctx, "L1")));
+  patterns.add<LinalgTilingPattern>(
+      MatmulOp::getOperationName(), ctx,
+      LinalgTilingOptions().setTileSizes({2, 3, 4}),
+      LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
+                                 StringAttr::get(ctx, "ACCEL")));
+
+  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+
+  // Drop the marker.
+  funcOp.walk([](LinalgOp op) {
+    op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
+  });
+}
+
 namespace {
 
 struct ConvertLinalgToAXI4MLIRPass
@@ -106,8 +145,20 @@ struct ConvertLinalgToAXI4MLIRPass
     LinalgToAXI4MLIROptions options;
 
     ModuleOp module = getOperation();
+    MLIRContext *ctx = module.getContext();
 
     addAXI4MLIRRuntimeApiDeclarations(module);
+
+    LinalgTilingOptions lAlgOpts;
+    LinalgTransformationFilter lAlgFilter;
+
+    // Mark any unmarked linalg.matmul for tile generation
+    module.walk([&](linalg::MatmulOp op) {
+      if (!op->getAttr(kLinalgTransformMarker))
+        op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "MEM"));
+    });
+
+    module.walk([&](FuncOp funcOp) { applyPatterns(funcOp); });
 
     // Example on how to use options
     // if (lowerPermutationMaps) {
