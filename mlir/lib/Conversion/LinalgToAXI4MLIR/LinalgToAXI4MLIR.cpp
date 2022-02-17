@@ -100,7 +100,7 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
 }
 
 /// Apply tiling patterns to matmul operations with the correct attribute
-static void applyPatterns(FuncOp funcOp) {
+static void applyPatterns(FuncOp funcOp, const int & tileSize) {
   MLIRContext *ctx = funcOp.getContext();
   RewritePatternSet patterns(ctx);
 
@@ -119,11 +119,22 @@ static void applyPatterns(FuncOp funcOp) {
       LinalgTilingOptions().setTileSizes({20, 30, 40}),
       LinalgTransformationFilter(StringAttr::get(ctx, "L2"),
                                  StringAttr::get(ctx, "L1")));
-  patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
-      LinalgTilingOptions().setTileSizes({2, 3, 4}),
-      LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                 StringAttr::get(ctx, "ACCEL")));
+
+  if (tileSize>1) {
+    patterns.add<LinalgTilingPattern>(
+        MatmulOp::getOperationName(), ctx,
+        LinalgTilingOptions().setTileSizes({tileSize, tileSize, tileSize}),
+        LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
+                                   StringAttr::get(ctx, "ACCEL")));
+
+  }
+  else {
+    patterns.add<LinalgTilingPattern>(
+        MatmulOp::getOperationName(), ctx,
+        LinalgTilingOptions().setTileSizes({4, 4, 4}),
+        LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
+                                  StringAttr::get(ctx, "ACCEL")));
+  }
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
 
@@ -233,7 +244,8 @@ struct ConvertLinalgToAXI4MLIRPass
         op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "MEM"));
     });
 
-    module.walk([&](FuncOp funcOp) { applyPatterns(funcOp); });
+    module.walk(
+        [&](FuncOp funcOp) { applyPatterns(funcOp, options.tileSize); });
 
     // Replace inner-matmul with ACCEL attribute by accelerator driver logic
 
