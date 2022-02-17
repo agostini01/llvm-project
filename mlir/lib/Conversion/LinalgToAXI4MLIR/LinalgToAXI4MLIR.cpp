@@ -180,18 +180,31 @@ static void castSubViews(linalg::MatmulOp op) {
   // Input
   auto m = b.create<arith::IndexCastOp>(intTy, sizes[0]);
   auto k = b.create<arith::IndexCastOp>(intTy, sizes[1]);
-  auto n = b.create<arith::IndexCastOp>(intTy, sizes[2]);
+  auto n = b.create<arith::IndexCastOp>(intTy, sizes[3]);
 
   auto aLen = b.create<arith::MulIOp>(m, k);
   auto bLen = b.create<arith::MulIOp>(k, n);
-  auto cLen = b.create<arith::MulIOp>(m, n);
+  auto totalLen = b.create<arith::AddIOp>(aLen, bLen);
+  auto oLen = b.create<arith::MulIOp>(m, n);
 
   // TODO this may depend on the flow order
   auto aOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
   auto bOffset = aLen;
   auto oOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
 
-  // Calculate sizes
+  b.create<CallOp>(kCopyToInbufferF32, intTy,
+                   SmallVector<Value, 2>({casted[0], aOffset}));
+  b.create<CallOp>(kCopyToInbufferF32, intTy,
+                   SmallVector<Value, 2>({casted[1], bOffset}));
+
+  b.create<CallOp>(kDmaStartSend, intTy,
+                   SmallVector<Value, 2>({totalLen, aOffset}));
+  b.create<CallOp>(kDmaStartRecv, intTy,
+                   SmallVector<Value, 2>({oLen, oOffset}));
+
+  b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+                   SmallVector<Value, 2>({casted[2], oOffset}));
+  op.erase();
 }
 
 namespace {
