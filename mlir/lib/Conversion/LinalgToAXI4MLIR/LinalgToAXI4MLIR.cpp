@@ -213,6 +213,11 @@ static void castSubViews(linalg::MatmulOp op) {
   b.create<CallOp>(kDmaStartRecv, intTy,
                    SmallVector<Value, 2>({oLen, oOffset}));
 
+  
+  b.create<CallOp>(kDmaWaitSend, TypeRange());
+  
+  b.create<CallOp>(kDmaWaitRecv, TypeRange());
+  
   b.create<CallOp>(kCopyFromOutbufferF32, intTy,
                    SmallVector<Value, 2>({casted[2], oOffset}));
   op.erase();
