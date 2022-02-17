@@ -244,44 +244,21 @@ struct ConvertLinalgToAXI4MLIRPass
         op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "MEM"));
     });
 
+
+    // Tile matmul operations with MEM attribute
     module.walk(
         [&](FuncOp funcOp) { applyPatterns(funcOp, options.tileSize); });
 
     // Replace inner-matmul with ACCEL attribute by accelerator driver logic
-
-    // generate calls: dma_init, dma_free
-    module.walk([&](FuncOp funcOp) {
-      if (!funcOp.getBody().empty())
-        addDMAInitCalls(funcOp);
+    module.walk([&](linalg::MatmulOp op) {
+      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
+        addDMAInitCalls(op->getParentOfType<FuncOp>());
     });
 
-    // get inner linalg.matmul
-    // find parent scf.for
-    // find created memref.subview(s)
-    // cast subviews to unranked memrefs
     module.walk([&](linalg::MatmulOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
         castSubViews(op);
     });
-    // calculate transfer sizes
-    // generate calls to copy to dma region
-    // generate call start send and recv
-    // generate call wait send and recv
-    // generate calls to copy from dma region
-    // accumulate the output
-
-    // Example on how to use options
-    // if (lowerPermutationMaps) {
-    //   RewritePatternSet lowerTransferPatterns(getOperation().getContext());
-    //   mlir::vector::populateVectorTransferPermutationMapLoweringPatterns(
-    //       lowerTransferPatterns);
-    //   (void)applyPatternsAndFoldGreedily(getOperation(),
-    //                                      std::move(lowerTransferPatterns));
-    // }
-
-    // RewritePatternSet patterns(getOperation().getContext());
-    // populateLinalgToAXI4MLIRConversionPatterns(patterns, options);
-    // (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
 
     return;
   }
