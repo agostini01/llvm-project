@@ -127,21 +127,17 @@ static void applyPatterns(FuncOp funcOp) {
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
 
-  // Drop the marker.
-  funcOp.walk([](LinalgOp op) {
-    op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
-  });
+  // // Drop the marker.
+  // funcOp.walk([](LinalgOp op) {
+  //   op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
+  // });
 }
 
 static void addDMAInitCalls(FuncOp funcOp) {
-  MLIRContext *ctx = funcOp.getContext();
   auto b = ImplicitLocOpBuilder::atBlockBegin(funcOp.getLoc(),
                                               &(funcOp.body().front()));
 
-  Type myType = b.getF32Type();
-  Type intTy = b.getI64Type();
   Type indexTy = b.getIndexType();
-  Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
   SmallVector<Value, 5> dmaInitValues;
   dmaInitValues.push_back(
@@ -159,8 +155,43 @@ static void addDMAInitCalls(FuncOp funcOp) {
 
   Operation *terminator = &funcOp.body().front().back();
   b.setInsertionPoint(terminator);
-  auto cOp = b.create<CallOp>(kDmaFree, TypeRange());
-  funcOp.emitWarning() << "I am here";
+  b.create<CallOp>(kDmaFree, TypeRange());
+}
+
+static void castSubViews(linalg::MatmulOp op) {
+  auto b = ImplicitLocOpBuilder(op.getLoc(), op);
+  Type myType = b.getF32Type();
+  Type intTy = b.getI64Type();
+  Type unrankedType = UnrankedMemRefType::get(myType, 0);
+
+  SmallVector<Value, 3> casted;
+  SmallVector<Value, 6> sizes;
+
+  for (Value operand : op->getOperands()) {
+    auto v = operand.getDefiningOp<memref::SubViewOp>();
+
+    casted.push_back(b.create<memref::CastOp>(unrankedType, operand));
+
+    for (Value s : v.sizes()) {
+      sizes.push_back(s);
+    }
+  }
+
+  // Input
+  auto m = b.create<arith::IndexCastOp>(intTy, sizes[0]);
+  auto k = b.create<arith::IndexCastOp>(intTy, sizes[1]);
+  auto n = b.create<arith::IndexCastOp>(intTy, sizes[2]);
+
+  auto aLen = b.create<arith::MulIOp>(m, k);
+  auto bLen = b.create<arith::MulIOp>(k, n);
+  auto cLen = b.create<arith::MulIOp>(m, n);
+
+  // TODO this may depend on the flow order
+  auto aOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
+  auto bOffset = aLen;
+  auto oOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
+
+  // Calculate sizes
 }
 
 namespace {
@@ -203,6 +234,10 @@ struct ConvertLinalgToAXI4MLIRPass
     // find parent scf.for
     // find created memref.subview(s)
     // cast subviews to unranked memrefs
+    module.walk([&](linalg::MatmulOp op) {
+      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
+        castSubViews(op);
+    });
     // calculate transfer sizes
     // generate calls to copy to dma region
     // generate call start send and recv
