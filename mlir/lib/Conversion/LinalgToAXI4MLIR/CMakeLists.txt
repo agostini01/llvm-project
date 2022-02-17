@@ -15,6 +15,4 @@ add_mlir_conversion_library(MLIRLinalgToAXI4MLIR
   MLIRLLVMIR
   MLIRMemRef
   MLIRTransforms
-  MLIRVector
-  MLIRVectorTransforms
   )

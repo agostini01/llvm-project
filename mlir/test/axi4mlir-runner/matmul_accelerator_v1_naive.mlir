@@ -27,16 +27,14 @@ func private @print_memref_f32(memref<*xf32>)
 func private @dma_init(index, index, index, index, index) -> ()
 func private @dma_free() -> ()
 
-func private @mlir_dma_copy_to_inbuffer(memref<*xf32>, i64, i64) -> (i64)
-func private @mlir_dma_copy_from_outbuffer(memref<*xf32>, i64, i64) -> (i64)
-func private @copy_to_inbuffer_f32(memref<*xf32>, i64) -> (i64)
-func private @copy_from_outbuffer_f32(memref<*xf32>, i64) -> (i64)
+func private @copy_to_inbuffer_f32(memref<*xf32>, i64) -> i64
+func private @copy_from_outbuffer_f32(memref<*xf32>, i64) -> i64
 
-func private @dma_start_send(i64, i64) -> (i64)
-func private @dma_wait_send() -> ()
+func private @dma_start_send(i64, i64) -> i64
+func private @dma_wait_send()
 
-func private @dma_start_recv(i64, i64) -> (i64)
-func private @dma_wait_recv() -> ()
+func private @dma_start_recv(i64, i64) -> i64
+func private @dma_wait_recv()
 
 func @alloc_2d_filled_f32(%s1 : index, %s2 : index, %f : f32) -> memref<?x?xf32> {
   %buf = memref.alloc(%s1, %s2) : memref<?x?xf32>
@@ -147,7 +145,7 @@ func @main() {
         %out_offset = arith.constant 0 : i64 // offset on the output buffer
 
         // Copy data to be transfer
-        call @copy_to_inbuffer_f32(%in1_tile, %inA_offset) : (memref<*xf32>, i64) -> (i64)
+        call @copy_to_inbuffer_f32(%in1_tile, %inA_offset) : (memref<*xf32>, i64) -> i64
         call @copy_to_inbuffer_f32(%in2_tile, %inB_offset) : (memref<*xf32>, i64) -> (i64)
         call @dma_start_send (%total_input_lenght, %inA_offset) : (i64, i64) -> (i64)
         call @dma_start_recv (%out_lenght, %out_offset) : (i64, i64) -> (i64)

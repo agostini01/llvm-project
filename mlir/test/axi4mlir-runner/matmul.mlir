@@ -3,7 +3,7 @@
 
 // CHECK-LABEL: func @main(
 func @main(%A: memref<1584x1584xf32>, %B: memref<1584x1584xf32>, %C: memref<1584x1584xf32>) {
-  linalg.matmul
+  linalg.matmul {__internal_linalg_transform__="L1"}
    ins(%A, %B: memref<1584x1584xf32>, memref<1584x1584xf32>)
    outs(%C: memref<1584x1584xf32>)
 
@@ -11,7 +11,7 @@ func @main(%A: memref<1584x1584xf32>, %B: memref<1584x1584xf32>, %C: memref<1584
 }
 
 func @main2(%A: memref<16x8xf32>, %B: memref<8x32xf32>, %C: memref<16x32xf32>) {
-  linalg.matmul
+  linalg.matmul {__internal_linalg_transform__="NO"}
    ins(%A, %B: memref<16x8xf32>, memref<8x32xf32>)
    outs(%C: memref<16x32xf32>)
 

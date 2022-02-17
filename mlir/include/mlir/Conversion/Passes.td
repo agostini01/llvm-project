@@ -843,7 +843,8 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let dependentDialects = [
     "AffineDialect",
     "memref::MemRefDialect",
-    "scf::SCFDialect"
+    "scf::SCFDialect",
+    "LLVM::LLVMDialect",
   ];
   let options = [
     Option<"tileSize", "tile-size", "unsigned", /*default=*/"",

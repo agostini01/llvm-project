@@ -17,6 +17,7 @@
 #include "../PassDetail.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/Builders.h"
@@ -132,6 +133,36 @@ static void applyPatterns(FuncOp funcOp) {
   });
 }
 
+static void addDMAInitCalls(FuncOp funcOp) {
+  MLIRContext *ctx = funcOp.getContext();
+  auto b = ImplicitLocOpBuilder::atBlockBegin(funcOp.getLoc(),
+                                              &(funcOp.body().front()));
+
+  Type myType = b.getF32Type();
+  Type intTy = b.getI64Type();
+  Type indexTy = b.getIndexType();
+  Type unrankedType = UnrankedMemRefType::get(myType, 0);
+
+  SmallVector<Value, 5> dmaInitValues;
+  dmaInitValues.push_back(
+      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
+  dmaInitValues.push_back(
+      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
+  dmaInitValues.push_back(
+      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 1000)));
+  dmaInitValues.push_back(
+      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
+  dmaInitValues.push_back(
+      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 1000)));
+
+  b.create<CallOp>(kDmaInit, TypeRange(), dmaInitValues);
+
+  Operation *terminator = &funcOp.body().front().back();
+  b.setInsertionPoint(terminator);
+  auto cOp = b.create<CallOp>(kDmaFree, TypeRange());
+  funcOp.emitWarning() << "I am here";
+}
+
 namespace {
 
 struct ConvertLinalgToAXI4MLIRPass
@@ -160,6 +191,25 @@ struct ConvertLinalgToAXI4MLIRPass
 
     module.walk([&](FuncOp funcOp) { applyPatterns(funcOp); });
 
+    // Replace inner-matmul with ACCEL attribute by accelerator driver logic
+
+    // generate calls: dma_init, dma_free
+    module.walk([&](FuncOp funcOp) {
+      if (!funcOp.getBody().empty())
+        addDMAInitCalls(funcOp);
+    });
+
+    // get inner linalg.matmul
+    // find parent scf.for
+    // find created memref.subview(s)
+    // cast subviews to unranked memrefs
+    // calculate transfer sizes
+    // generate calls to copy to dma region
+    // generate call start send and recv
+    // generate call wait send and recv
+    // generate calls to copy from dma region
+    // accumulate the output
+
     // Example on how to use options
     // if (lowerPermutationMaps) {
     //   RewritePatternSet lowerTransferPatterns(getOperation().getContext());
@@ -172,6 +222,8 @@ struct ConvertLinalgToAXI4MLIRPass
     // RewritePatternSet patterns(getOperation().getContext());
     // populateLinalgToAXI4MLIRConversionPatterns(patterns, options);
     // (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+
+    return;
   }
 };
 
