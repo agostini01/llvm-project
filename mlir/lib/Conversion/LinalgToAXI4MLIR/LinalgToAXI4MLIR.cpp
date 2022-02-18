@@ -100,7 +100,8 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
 }
 
 /// Apply tiling patterns to matmul operations with the correct attribute
-static void applyPatterns(FuncOp funcOp, const int & tileSize) {
+static void applyPatterns(FuncOp funcOp,
+                          const LinalgToAXI4MLIROptions &options) {
   MLIRContext *ctx = funcOp.getContext();
   RewritePatternSet patterns(ctx);
 
@@ -120,20 +121,20 @@ static void applyPatterns(FuncOp funcOp, const int & tileSize) {
       LinalgTransformationFilter(StringAttr::get(ctx, "L2"),
                                  StringAttr::get(ctx, "L1")));
 
-  if (tileSize>1) {
+  if (options.tileSize > 1) {
     patterns.add<LinalgTilingPattern>(
         MatmulOp::getOperationName(), ctx,
-        LinalgTilingOptions().setTileSizes({tileSize, tileSize, tileSize}),
+        LinalgTilingOptions().setTileSizes(
+            {options.tileSize, options.tileSize, options.tileSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
                                    StringAttr::get(ctx, "ACCEL")));
 
-  }
-  else {
+  } else {
     patterns.add<LinalgTilingPattern>(
         MatmulOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes({4, 4, 4}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                  StringAttr::get(ctx, "ACCEL")));
+                                   StringAttr::get(ctx, "ACCEL")));
   }
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
@@ -144,23 +145,24 @@ static void applyPatterns(FuncOp funcOp, const int & tileSize) {
   // });
 }
 
-static void addDMAInitCalls(FuncOp funcOp) {
+static void addDMAInitCalls(FuncOp funcOp,
+                            const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder::atBlockBegin(funcOp.getLoc(),
                                               &(funcOp.body().front()));
 
   Type indexTy = b.getIndexType();
 
   SmallVector<Value, 5> dmaInitValues;
-  dmaInitValues.push_back(
-      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
-  dmaInitValues.push_back(
-      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
-  dmaInitValues.push_back(
-      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 1000)));
-  dmaInitValues.push_back(
-      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 0)));
-  dmaInitValues.push_back(
-      b.create<arith::ConstantOp>(IntegerAttr::get(indexTy, 1000)));
+  dmaInitValues.push_back(b.create<arith::ConstantOp>(
+      IntegerAttr::get(indexTy, options.dmaAddress)));
+  dmaInitValues.push_back(b.create<arith::ConstantOp>(
+      IntegerAttr::get(indexTy, options.dmaInputAddress)));
+  dmaInitValues.push_back(b.create<arith::ConstantOp>(
+      IntegerAttr::get(indexTy, options.dmaInputBufferSize)));
+  dmaInitValues.push_back(b.create<arith::ConstantOp>(
+      IntegerAttr::get(indexTy, options.dmaOutputAddress)));
+  dmaInitValues.push_back(b.create<arith::ConstantOp>(
+      IntegerAttr::get(indexTy, options.dmaOutputBufferSize)));
 
   b.create<CallOp>(kDmaInit, TypeRange(), dmaInitValues);
 
@@ -213,11 +215,9 @@ static void castSubViews(linalg::MatmulOp op) {
   b.create<CallOp>(kDmaStartRecv, intTy,
                    SmallVector<Value, 2>({oLen, oOffset}));
 
-  
   b.create<CallOp>(kDmaWaitSend, TypeRange());
-  
   b.create<CallOp>(kDmaWaitRecv, TypeRange());
-  
+
   b.create<CallOp>(kCopyFromOutbufferF32, intTy,
                    SmallVector<Value, 2>({casted[2], oOffset}));
   op.erase();
@@ -228,20 +228,32 @@ namespace {
 struct ConvertLinalgToAXI4MLIRPass
     : public ConvertLinalgToAXI4MLIRBase<ConvertLinalgToAXI4MLIRPass> {
   ConvertLinalgToAXI4MLIRPass() = default;
+
+  /// Constructor to build this pass using user defined options
+  ///
+  /// Must manually set the LinalgToAXI4MLIROptions options
   ConvertLinalgToAXI4MLIRPass(const LinalgToAXI4MLIROptions &options) {
     this->tileSize = options.tileSize;
+    this->dmaAddress = options.dmaAddress;
+    this->dmaInputAddress = options.dmaInputAddress;
+    this->dmaInputBufferSize = options.dmaInputBufferSize;
+    this->dmaOutputAddress = options.dmaOutputAddress;
+    this->dmaOutputBufferSize = options.dmaOutputAddress;
   }
 
   void runOnOperation() override {
     LinalgToAXI4MLIROptions options;
+    options.tileSize = tileSize;
+    options.dmaAddress = dmaAddress;
+    options.dmaInputAddress = dmaInputAddress;
+    options.dmaInputBufferSize = dmaInputBufferSize;
+    options.dmaOutputAddress = dmaOutputAddress;
+    options.dmaOutputBufferSize = dmaOutputBufferSize;
 
     ModuleOp module = getOperation();
     MLIRContext *ctx = module.getContext();
 
     addAXI4MLIRRuntimeApiDeclarations(module);
-
-    LinalgTilingOptions lAlgOpts;
-    LinalgTransformationFilter lAlgFilter;
 
     // Mark any unmarked linalg.matmul for tile generation
     module.walk([&](linalg::MatmulOp op) {
@@ -249,15 +261,13 @@ struct ConvertLinalgToAXI4MLIRPass
         op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "MEM"));
     });
 
-
     // Tile matmul operations with MEM attribute
-    module.walk(
-        [&](FuncOp funcOp) { applyPatterns(funcOp, options.tileSize); });
+    module.walk([&](FuncOp funcOp) { applyPatterns(funcOp, options); });
 
     // Replace inner-matmul with ACCEL attribute by accelerator driver logic
     module.walk([&](linalg::MatmulOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
-        addDMAInitCalls(op->getParentOfType<FuncOp>());
+        addDMAInitCalls(op->getParentOfType<FuncOp>(), options);
     });
 
     module.walk([&](linalg::MatmulOp op) {
@@ -271,7 +281,13 @@ struct ConvertLinalgToAXI4MLIRPass
 
 } // namespace
 
-std::unique_ptr<Pass> mlir::createConvertLinalgToAXI4MLIRPass(
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createConvertLinalgToAXI4MLIRPass() {
+  return std::make_unique<ConvertLinalgToAXI4MLIRPass>();
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createConvertLinalgToAXI4MLIRPass(
     const LinalgToAXI4MLIROptions &options) {
   return std::make_unique<ConvertLinalgToAXI4MLIRPass>(options);
 }

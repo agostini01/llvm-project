@@ -837,6 +837,21 @@ def ConvertArmNeon2dToIntr : Pass<"arm-neon-2d-to-intr", "FuncOp"> {
 // LinalgToAXI4MLIR
 //===----------------------------------------------------------------------===//
 
+def AXI4MLIRDMAOptions {
+  list<Option> options = [
+    Option<"dmaAddress", "dma-address", "unsigned", /*default=*/"1077936128",
+           "DMA address">,
+    Option<"dmaInputAddress", "dma-input-address", "unsigned", /*default=*/"369098752",
+           "DMA input buffer address">,
+    Option<"dmaInputBufferSize", "dma-input-buffer-size", "unsigned", /*default=*/"65536",
+           "DMA input buffer address">,
+    Option<"dmaOutputAddress", "dma-output-address", "unsigned", /*default=*/"373293056",
+           "DMA output buffer address">,
+    Option<"dmaOutputBufferSize", "dma-output-buffer-size", "unsigned", /*default=*/"65536",
+           "DMA output buffer address">,
+  ];
+}
+
 def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
   let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
@@ -847,9 +862,9 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
     "LLVM::LLVMDialect",
   ];
   let options = [
-    Option<"tileSize", "tile-size", "unsigned", /*default=*/"",
+    Option<"tileSize", "tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
-  ];
+  ] # AXI4MLIRDMAOptions.options;
 }
 
 

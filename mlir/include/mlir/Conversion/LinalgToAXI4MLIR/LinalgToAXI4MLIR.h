@@ -14,14 +14,20 @@ namespace mlir {
 class MLIRContext;
 class Pass;
 class RewritePatternSet;
+class ModuleOp;
+template <typename T>
+class OperationPass;
 
 struct LinalgToAXI4MLIROptions {
   /// Tile Size information
   unsigned tileSize = 1;
-  LinalgToAXI4MLIROptions &setTileSize(unsigned t) {
-    tileSize = t;
-    return *this;
-  }
+
+  /// DMA Information
+  unsigned dmaAddress = 0;
+  unsigned dmaInputAddress = 0;
+  unsigned dmaInputBufferSize = 100000;
+  unsigned dmaOutputAddress = 100000;
+  unsigned dmaOutputBufferSize = 100000;
 };
 
 /// Collect a set of patterns to convert from the Linagl dialect to AXI4MLIR
@@ -30,9 +36,11 @@ void populateLinalgToAXI4MLIRConversionPatterns(
     RewritePatternSet &patterns,
     const LinalgToAXI4MLIROptions &options = LinalgToAXI4MLIROptions());
 
-/// Create a pass to convert a subset of vector ops to SCF.
-std::unique_ptr<Pass> createConvertLinalgToAXI4MLIRPass(
-    const LinalgToAXI4MLIROptions &options = LinalgToAXI4MLIROptions());
+// /// Create a pass to convert a linalg.matmul to axi4mlir calls
+std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgToAXI4MLIRPass();
+
+std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgToAXI4MLIRPass(
+    const LinalgToAXI4MLIROptions &options);
 
 } // namespace mlir
 
