@@ -250,7 +250,7 @@ static void castSubViews(linalg::MatmulOp op,
 
     // Create affine maps and attributes
     SmallVector<AffineMap, 3> indexingMaps(
-        /*2 inputs, 1 (inplace) output*/ 3, b.getMultiDimIdentityMap(rank));
+        /*1 inputs, 1 (inplace) output*/ 2, b.getMultiDimIdentityMap(rank));
     auto loopsAttr =
         SmallVector<StringRef>(rank, getParallelIteratorTypeName());
 
@@ -258,7 +258,7 @@ static void castSubViews(linalg::MatmulOp op,
     Location loc = b.getLoc();
     b.create<linalg::GenericOp>(
         /*resultTypes=*/TypeRange(),
-        /*inputs=*/ValueRange({tMr, outSubview}),
+        /*inputs=*/tMr,
         /*outputs=*/outSubview,
         /*indexingMaps=*/indexingMaps,
         /*iteratorTypes=*/loopsAttr,
