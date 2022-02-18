@@ -852,6 +852,13 @@ def AXI4MLIRDMAOptions {
   ];
 }
 
+def AXI4MLIRFlowOptions {
+  list<Option> options = [
+    Option<"flowCpuAcc", "flow-cpu-accumulation", "bool", /*default=*/"false",
+           "Decide if code to accumulate on the CPU must be generated">,
+  ];
+}
+
 def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
   let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
@@ -864,7 +871,7 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let options = [
     Option<"tileSize", "tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
-  ] # AXI4MLIRDMAOptions.options;
+  ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
 }
 
 

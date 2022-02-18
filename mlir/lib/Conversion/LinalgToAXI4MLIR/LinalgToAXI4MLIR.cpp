@@ -171,14 +171,15 @@ static void addDMAInitCalls(FuncOp funcOp,
   b.create<CallOp>(kDmaFree, TypeRange());
 }
 
-static void castSubViews(linalg::MatmulOp op) {
+static void castSubViews(linalg::MatmulOp op,
+                         const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getF32Type();
   Type intTy = b.getI64Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
   SmallVector<Value, 3> casted;
-  SmallVector<Value, 6> sizes;
+  SmallVector<Value, 6> dims;
 
   for (Value operand : op->getOperands()) {
     auto v = operand.getDefiningOp<memref::SubViewOp>();
@@ -186,20 +187,32 @@ static void castSubViews(linalg::MatmulOp op) {
     casted.push_back(b.create<memref::CastOp>(unrankedType, operand));
 
     for (Value s : v.sizes()) {
-      sizes.push_back(s);
+      dims.push_back(s);
     }
   }
 
-  // Input
-  auto m = b.create<arith::IndexCastOp>(intTy, sizes[0]);
-  auto k = b.create<arith::IndexCastOp>(intTy, sizes[1]);
-  auto n = b.create<arith::IndexCastOp>(intTy, sizes[3]);
+  SmallVector<Value, 2> tmpMrAndCast;
+  if (options.flowCpuAcc) {
 
+    // Create temp memref - same as accelerator tile size
+    auto tmpMrType =
+        MemRefType::get({options.tileSize, options.tileSize}, myType);
+    auto tMr = b.create<memref::AllocaOp>(tmpMrType);
+    tmpMrAndCast.push_back(tMr);
+
+    // Cast to the unranked - needed by dma library
+    auto tCast = b.create<memref::CastOp>(unrankedType, tMr);
+    tmpMrAndCast.push_back(tCast);
+  }
+
+  // Calculate transfer sizes and offset
+  auto m = b.create<arith::IndexCastOp>(intTy, dims[0]);
+  auto k = b.create<arith::IndexCastOp>(intTy, dims[1]);
+  auto n = b.create<arith::IndexCastOp>(intTy, dims[3]);
   auto aLen = b.create<arith::MulIOp>(m, k);
   auto bLen = b.create<arith::MulIOp>(k, n);
   auto totalLen = b.create<arith::AddIOp>(aLen, bLen);
   auto oLen = b.create<arith::MulIOp>(m, n);
-
   // TODO this may depend on the flow order
   auto aOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
   auto bOffset = aLen;
@@ -218,8 +231,45 @@ static void castSubViews(linalg::MatmulOp op) {
   b.create<CallOp>(kDmaWaitSend, TypeRange());
   b.create<CallOp>(kDmaWaitRecv, TypeRange());
 
-  b.create<CallOp>(kCopyFromOutbufferF32, intTy,
-                   SmallVector<Value, 2>({casted[2], oOffset}));
+  if (!options.flowCpuAcc) {
+    // Results were accumulated on the accelerator (output stationary)
+    b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+                     SmallVector<Value, 2>({casted[2], oOffset}));
+  } else {
+    // Accumulate accelerator results back on output memref/subview
+
+    auto tMr = tmpMrAndCast[0];
+    auto tCast = tmpMrAndCast[1];
+    auto outSubview = op.outputs()[0]; // This must be updated
+    MemRefType tmpMrType = tMr.getType().cast<MemRefType>();
+    unsigned rank = tmpMrType.getRank();
+
+    // Copy to the temporary buffer
+    b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+                     SmallVector<Value, 2>({tCast, oOffset}));
+
+    // Create affine maps and attributes
+    SmallVector<AffineMap, 3> indexingMaps(
+        /*2 inputs, 1 (inplace) output*/ 3, b.getMultiDimIdentityMap(rank));
+    auto loopsAttr =
+        SmallVector<StringRef>(rank, getParallelIteratorTypeName());
+
+    // Create the linalg generic op
+    Location loc = b.getLoc();
+    b.create<linalg::GenericOp>(
+        /*resultTypes=*/TypeRange(),
+        /*inputs=*/ValueRange({tMr, outSubview}),
+        /*outputs=*/outSubview,
+        /*indexingMaps=*/indexingMaps,
+        /*iteratorTypes=*/loopsAttr,
+        /*bodyBuilder=*/
+        [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
+          Value added =
+              nestedBuilder.create<arith::AddFOp>(loc, args[0], args[1]);
+          nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
+        });
+  }
+
   op.erase();
 }
 
@@ -239,6 +289,7 @@ struct ConvertLinalgToAXI4MLIRPass
     this->dmaInputBufferSize = options.dmaInputBufferSize;
     this->dmaOutputAddress = options.dmaOutputAddress;
     this->dmaOutputBufferSize = options.dmaOutputAddress;
+    this->flowCpuAcc = options.flowCpuAcc;
   }
 
   void runOnOperation() override {
@@ -249,6 +300,7 @@ struct ConvertLinalgToAXI4MLIRPass
     options.dmaInputBufferSize = dmaInputBufferSize;
     options.dmaOutputAddress = dmaOutputAddress;
     options.dmaOutputBufferSize = dmaOutputBufferSize;
+    options.flowCpuAcc = flowCpuAcc;
 
     ModuleOp module = getOperation();
     MLIRContext *ctx = module.getContext();
@@ -272,7 +324,7 @@ struct ConvertLinalgToAXI4MLIRPass
 
     module.walk([&](linalg::MatmulOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
-        castSubViews(op);
+        castSubViews(op, options);
     });
 
     return;

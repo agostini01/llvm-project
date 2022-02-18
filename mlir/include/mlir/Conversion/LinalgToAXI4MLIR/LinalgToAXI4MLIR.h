@@ -28,6 +28,9 @@ struct LinalgToAXI4MLIROptions {
   unsigned dmaInputBufferSize = 100000;
   unsigned dmaOutputAddress = 100000;
   unsigned dmaOutputBufferSize = 100000;
+
+  /// Flow information
+  bool flowCpuAcc = false;
 };
 
 /// Collect a set of patterns to convert from the Linagl dialect to AXI4MLIR
