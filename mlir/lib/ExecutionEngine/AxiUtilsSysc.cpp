@@ -65,11 +65,6 @@ extern "C" int dma_copy_from_outbuffer(unsigned int *host_dst_address,
   return myDMA.dma_copy_from_outbuffer(host_dst_address, data_length, offset);
 }
 
-extern "C" int dma_start_send(int length, int offset) {
-  std::cout << "Called: " << __func__ << " sysc version" << std::endl;
-  return myDMA.dma_start_send(length, offset);
-}
-
 template <typename T>
 int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<T> &src, int data_length,
                               int offset) {
@@ -118,6 +113,11 @@ extern "C" int mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
   myDMA.mlir_dma_copy_from_outbuffer(dst.data, dst.rank, dst.rank, dst.offset,
                                      dst.sizes, dst.strides, offset);
   return 0;
+}
+
+extern "C" int dma_start_send(int length, int offset) {
+  std::cout << "Called: " << __func__ << " sysc version" << std::endl;
+  return myDMA.dma_start_send(length, offset);
 }
 
 extern "C" int dma_check_send() {
