@@ -1,4 +1,4 @@
-// RUN: mlir-opt -test-linalg-to-axi4mlir \
+// RUN: mlir-opt -test-linalg-to-axi4mlir="flow-cpu-accumulation" \
 // RUN:  -convert-linalg-to-loops -lower-affine -convert-scf-to-cf \
 // RUN:  -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm \
 // RUN:  -reconcile-unrealized-casts %s | \
@@ -12,6 +12,7 @@
 func private @print_memref_f32(memref<*xf32>)
 
 
+// This is the only code that gets modified by the -test-linalg-to-axi4mlir pass
 func @matmul_call(%A: memref<16x8xf32>, %B: memref<8x32xf32>, %C: memref<16x32xf32>) {
   linalg.matmul {__internal_linalg_transform__="L1"}
    ins(%A, %B: memref<16x8xf32>, memref<8x32xf32>)
@@ -19,6 +20,22 @@ func @matmul_call(%A: memref<16x8xf32>, %B: memref<8x32xf32>, %C: memref<16x32xf
   return
 }
 
+//CHECK: dma_init
+
+// This is a repeating pattern. Only check the first 2 iterations.
+//CHECK: dma_start_send
+//CHECK: dma_wait_send
+//CHECK: dma_start_recv
+//
+//CHECK: dma_start_send
+//CHECK: dma_wait_send
+//CHECK: dma_start_recv
+
+// Many more will happen
+
+//CHECK: dma_free
+
+// All functions below are only part of the driver code
 func @alloc_2d_filled_f32(%s1 : index, %s2 : index, %f : f32) -> memref<?x?xf32> {
   %buf = memref.alloc(%s1, %s2) : memref<?x?xf32>
   linalg.fill(%f, %buf) : f32, memref<?x?xf32>
@@ -91,4 +108,3 @@ func @main() {
   return
 }
 
-// CHECK: FAIL
