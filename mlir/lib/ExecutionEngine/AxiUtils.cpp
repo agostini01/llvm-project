@@ -69,6 +69,20 @@ extern "C" int dma_copy_from_outbuffer(unsigned int *host_dst_address,
 //   return 0;
 // }
 
+
+extern "C" int _mlir_ciface_copy_to_inbuffer_f32(UnrankedMemRefType<float> *M,
+                                                 int64_t offset) {
+  mlir_dma_copy_to_inbuffer(DynamicMemRefType<float>(*M), 0, offset);
+  return 0;
+}
+
+extern "C" int copy_to_inbuffer_f32(int64_t rank, void *ptr, int64_t offset) {
+  UnrankedMemRefType<float> descriptor = {rank, ptr};
+  return _mlir_ciface_copy_to_inbuffer_f32(&descriptor, offset);
+}
+
+
+
 extern "C" int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src,
                                          int data_length, int offset) {
   std::cout << "Called: " << __func__ << " not mock version" << std::endl;
@@ -80,6 +94,19 @@ extern "C" int mlir_dma_copy_to_inbuffer(const DynamicMemRefType<float> &src,
 //   std::cout << "Called: " << __func__ << " not mock version" << std::endl;
 //   return 0;
 // }
+
+
+extern "C" int
+_mlir_ciface_copy_from_outbuffer_f32(UnrankedMemRefType<float> *M) {
+  mlir_dma_copy_from_outbuffer(DynamicMemRefType<float>(*M), 0, 0);
+  return 0;
+}
+
+extern "C" int copy_from_outbuffer_f32(int64_t rank, void *ptr,
+                                       int64_t offset) {
+  UnrankedMemRefType<float> descriptor = {rank, ptr};
+  return _mlir_ciface_copy_from_outbuffer_f32(&descriptor);
+}
 
 extern "C" int mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
                                             int data_length, int offset) {

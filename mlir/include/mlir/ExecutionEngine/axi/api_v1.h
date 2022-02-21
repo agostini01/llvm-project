@@ -62,8 +62,7 @@ struct dma {
 
 // #define VERBOSE_AXI
 #ifdef VERBOSE_AXI
-// #define LOG(x) std::cout << x << std::endl
-#define LOG(x)
+#define LOG(x) std::cout << x << std::endl
 #else
 #define LOG(x)
 #endif

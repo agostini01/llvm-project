@@ -34,7 +34,7 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   dma_output_paddress = _dma_output_address;
   current_input_offset = 0;
   close(dh);
-  initDMAControls(); // Causes Segfault atm
+  initDMAControls();
   LOG("DMA Initialised");
 }
 
@@ -108,10 +108,8 @@ int dma::dma_start_recv(int length, int offset) {
 }
 
 void dma::dma_wait_recv() {
-  LOG("Data Receive - Waiting");
   LOG("Data Receive - Waiting " << dma_get(dma_address, S2MM_LENGTH));
   dma_s2mm_sync();
-  // unsigned int recv_len =  dma_get(dma_address,S2MM_LENGTH);
   LOG("Data Receive - Done " << dma_get(dma_address, S2MM_LENGTH));
 }
 
