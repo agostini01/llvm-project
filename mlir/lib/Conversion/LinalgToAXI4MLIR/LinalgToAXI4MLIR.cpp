@@ -74,6 +74,7 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   // Types
   // TODO, for now hardcoded to floats
   Type myType = builder.getF32Type();
+  // Type intTy = builder.getI32Type();
   Type intTy = builder.getI64Type();
   Type indexTy = builder.getIndexType();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
@@ -175,6 +176,7 @@ static void castSubViews(linalg::MatmulOp op,
                          const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getF32Type();
+  // Type intTy = b.getI32Type();
   Type intTy = b.getI64Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 

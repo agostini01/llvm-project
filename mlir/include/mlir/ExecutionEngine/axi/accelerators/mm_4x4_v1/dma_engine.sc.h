@@ -76,8 +76,8 @@ SC_MODULE(DMA_DRIVER) {
     reset_signal_is(reset, true);
   }
 
-  int *DMA_input_buffer;
-  int *DMA_output_buffer;
+  int64_t *DMA_input_buffer;
+  int64_t *DMA_output_buffer;
 
   // TODO: input_length = Number of elements * (sizeof(elements)/32)
   int input_len;
