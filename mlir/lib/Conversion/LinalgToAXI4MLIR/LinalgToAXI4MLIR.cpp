@@ -74,7 +74,8 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   // Types
   // TODO, for now hardcoded to floats
   Type myType = builder.getF32Type();
-  Type intTy = builder.getI64Type();
+  // Type intTy = builder.getI64Type();
+  Type intTy = builder.getI32Type();
   Type indexTy = builder.getIndexType();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
@@ -87,7 +88,8 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
 
   addFuncDecl(kDmaInit,
               FunctionType::get(
-                  ctx, {indexTy, indexTy, indexTy, indexTy, indexTy}, {}));
+                  ctx, {intTy, intTy, intTy, intTy, intTy}, {}));
+                  // ctx, {indexTy, indexTy, indexTy, indexTy, indexTy}, {}));
   addFuncDecl(kDmaFree, FunctionType::get(ctx, {}, {}));
   addFuncDecl(kCopyToInbufferF32,
               FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
@@ -150,7 +152,8 @@ static void addDMAInitCalls(FuncOp funcOp,
   auto b = ImplicitLocOpBuilder::atBlockBegin(funcOp.getLoc(),
                                               &(funcOp.body().front()));
 
-  Type indexTy = b.getIndexType();
+  // Type indexTy = b.getIndexType();
+  Type indexTy = b.getI32Type();
 
   SmallVector<Value, 5> dmaInitValues;
   dmaInitValues.push_back(b.create<arith::ConstantOp>(
@@ -175,7 +178,8 @@ static void castSubViews(linalg::MatmulOp op,
                          const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getF32Type();
-  Type intTy = b.getI64Type();
+  // Type intTy = b.getI64Type();
+  Type intTy = b.getI32Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
   SmallVector<Value, 3> casted;
