@@ -15,7 +15,7 @@ func @main(%A: memref<1584x1584xf32>, %B: memref<1584x1584xf32>, %C: memref<1584
   return
 }
 
-// DMA:      call @dma_init(%c43, %{{.*}}, %c56, %{{.*}}, %{{.*}})
+// DMA:      call @dma_init(%c43_i32, %{{.*}}, %c56_i32, %{{.*}}, %{{.*}})
 
 // CHECK:    call @dma_init
 // CHECK:    scf.for
@@ -59,11 +59,11 @@ func @main2(%A: memref<16x8xf32>, %B: memref<8x32xf32>, %C: memref<16x32xf32>) {
 // CHECK-NOT: call
 
 // AXI4MLIR functions
-// CHECK-LABEL: func private @dma_init(index, index, index, index, index)
+// CHECK-LABEL: func private @dma_init(i32, i32, i32, i32, i32)
 // CHECK-LABEL: func private @dma_free()
-// CHECK-LABEL: func private @copy_to_inbuffer_f32(memref<*xf32>, i64) -> i64
-// CHECK-LABEL: func private @copy_from_outbuffer_f32(memref<*xf32>, i64) -> i64
-// CHECK-LABEL: func private @dma_start_send(i64, i64) -> i64
+// CHECK-LABEL: func private @copy_to_inbuffer_f32(memref<*xf32>, i32) -> i32
+// CHECK-LABEL: func private @copy_from_outbuffer_f32(memref<*xf32>, i32) -> i32
+// CHECK-LABEL: func private @dma_start_send(i32, i32) -> i32
 // CHECK-LABEL: func private @dma_wait_send()
-// CHECK-LABEL: func private @dma_start_recv(i64, i64) -> i64
+// CHECK-LABEL: func private @dma_start_recv(i32, i32) -> i32
 // CHECK-LABEL: func private @dma_wait_recv()

@@ -14,12 +14,13 @@
 #include <unistd.h>
 
 #ifdef SYSC
-// Easy way to switch between systemC accelerators --- there is probably a better way
+// Easy way to switch between systemC accelerators --- there is probably a
+// better way
 #ifdef ACC_V4
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v4/accelerator.sc.h"
-#elif  ACC_V3
+#elif ACC_V3
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v3/accelerator.sc.h"
-#elif  ACC_V2
+#elif ACC_V2
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v2/accelerator.sc.h"
 #else
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v1/accelerator.sc.h"
@@ -51,20 +52,32 @@ struct dma {
 
 #define m_assert(expr, msg) assert(((void)(msg), (expr)))
 
+// Define this variable for additional profiling info (in api_v1_sysc.cpp)
 #define PROFILE
 #ifdef PROFILE
 #define PLOG(x) std::cout << x << std::endl
 #define PFUNC(x) x
 #else
+// Safer option that requires a semicolon, but relies on compiler to be removed
+// #define PLOG(x) do { } while(0)
+// #define PFUNC(x) do { } while(0)
 #define PLOG(x)
 #define PFUNC(x)
 #endif
 
+// Define this variable for additional debug info
 // #define VERBOSE_AXI
 #ifdef VERBOSE_AXI
-// #define LOG(x) std::cout << x << std::endl
-#define LOG(x)
+#define D(x)                                                                   \
+  do {                                                                         \
+    x                                                                          \
+  } while (0)
+#define LOG(x) std::cout << x << std::endl
 #else
+// Safer option that requires a semicolon, but relies on compiler to be removed
+// #define D(x) do { } while(0)
+// #define LOG(x) do { } while(0)
+#define D(x)
 #define LOG(x)
 #endif
 
@@ -79,11 +92,10 @@ struct dma {
   unsigned int current_input_offset;
 
   // Profiling Variables
-  unsigned int dma_send_length=0;
-  unsigned int dma_recv_length=0;
-  unsigned int dma_send_count=0;
-  unsigned int dma_recv_count=0;
-
+  unsigned int dma_send_length = 0;
+  unsigned int dma_recv_length = 0;
+  unsigned int dma_send_count = 0;
+  unsigned int dma_recv_count = 0;
 
   // temp --- need to remove later
   bool verbose;

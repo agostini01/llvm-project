@@ -72,8 +72,7 @@ template <typename T>
 inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                  int64_t mr_offset, const int64_t *mr_sizes,
                                  const int64_t *mr_strides,
-                                 unsigned int *dst_base,
-                                 const int64_t dst_offset) {
+                                 unsigned int *dst_base, const int dst_offset) {
   int64_t rank = mr_rank;
   // Handle empty shapes -> nothing to copy.
   for (int rankp = 0; rankp < rank; ++rankp)
@@ -144,7 +143,7 @@ template <typename T>
 int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                    int64_t mr_offset, const int64_t *mr_sizes,
                                    const int64_t *mr_strides, int dma_offset) {
-  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+  D(std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";);
 
   copy_memref_to_array(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
                        mr_strides, dma_get_inbuffer(), dma_offset);
@@ -232,7 +231,7 @@ int dma::mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim,
                                       const int64_t *mr_strides,
                                       int dma_offset) {
 
-  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+  D(std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";);
 
   copy_array_to_memref(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
                        mr_strides, dma_get_outbuffer(), dma_offset);
@@ -277,10 +276,11 @@ void dma::dma_wait_send() {
 int dma::dma_check_send() {
   unsigned int mm2s_status = dma_get(dma_address, MM2S_STATUS_REGISTER);
   bool done = !((!(mm2s_status & 1 << 12)) || (!(mm2s_status & 1 << 1)));
-  if (done)
+  if (done) {
     LOG("Data Transfer - Done");
-  else
+  } else {
     LOG("Data Transfer - Not Done");
+  }
   return done ? 0 : -1;
 }
 
@@ -307,10 +307,11 @@ void dma::dma_wait_recv() {
 int dma::dma_check_recv() {
   unsigned int s2mm_status = dma_get(dma_address, S2MM_STATUS_REGISTER);
   bool done = !((!(s2mm_status & 1 << 12)) || (!(s2mm_status & 1 << 1)));
-  if (done)
+  if (done) {
     LOG("Data Receive - Done");
-  else
+  } else {
     LOG("Data Receive - Not Done");
+  }
   return done ? 0 : -1;
 }
 

@@ -96,13 +96,13 @@ mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
                              int data_length, int offset);
 
 extern "C" MLIR_RUNNERUTILS_EXPORT int
-copy_to_inbuffer_f32(int64_t rank, void *ptr, int64_t offset);
+copy_to_inbuffer_f32(int64_t rank, void *ptr, int offset);
 
 extern "C" MLIR_RUNNERUTILS_EXPORT int
-copy_from_outbuffer_f32(int64_t rank, void *ptr, int64_t offset);
+copy_from_outbuffer_f32(int64_t rank, void *ptr, int offset);
 
 extern "C" MLIR_RUNNERUTILS_EXPORT int
-copy_to_inbuffer_i32(int64_t rank, void *ptr, int64_t offset);
+copy_to_inbuffer_i32(int64_t rank, void *ptr, int offset);
 
 //================================================================================================================
 

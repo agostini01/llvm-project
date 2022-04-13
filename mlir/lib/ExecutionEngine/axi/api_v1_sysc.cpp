@@ -95,8 +95,7 @@ template <typename T>
 inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                  int64_t mr_offset, const int64_t *mr_sizes,
                                  const int64_t *mr_strides,
-                                 unsigned int *dst_base,
-                                 const int64_t dst_offset) {
+                                 unsigned int *dst_base, const int dst_offset) {
   int64_t rank = mr_rank;
   // Handle empty shapes -> nothing to copy.
   for (int rankp = 0; rankp < rank; ++rankp)
