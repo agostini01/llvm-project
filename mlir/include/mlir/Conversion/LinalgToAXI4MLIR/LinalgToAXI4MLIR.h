@@ -19,7 +19,7 @@ template <typename T>
 class OperationPass;
 
 struct LinalgToAXI4MLIROptions {
-  /// Tile Size information
+  /// Accelerator Tile Size information
   unsigned tileSize = 1;
 
   /// DMA Information
@@ -31,6 +31,10 @@ struct LinalgToAXI4MLIROptions {
 
   /// Flow information
   bool flowCpuAcc = false;
+  unsigned numberOfCaches = false;
+  ArrayRef<unsigned> cacheSizes;
+  ArrayRef<unsigned> tileSizes;
+  unsigned elementSize = false;
 };
 
 /// Collect a set of patterns to convert from the Linagl dialect to AXI4MLIR

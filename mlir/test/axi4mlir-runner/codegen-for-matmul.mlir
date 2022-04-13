@@ -1,6 +1,6 @@
 // RUN: mlir-opt %s -test-linalg-to-axi4mlir | FileCheck %s
 // RUN: mlir-opt %s -test-linalg-to-axi4mlir="flow-cpu-accumulation=true" | FileCheck %s --check-prefix=CPU
-// RUN: mlir-opt %s -test-linalg-to-axi4mlir="tile-size=8" | FileCheck %s --check-prefix=TILE
+// RUN: mlir-opt %s -test-linalg-to-axi4mlir="accel-tile-size=8" | FileCheck %s --check-prefix=TILE
 // RUN: mlir-opt %s -test-linalg-to-axi4mlir="dma-address=43 dma-input-buffer-size=56" | FileCheck %s --check-prefix=DMA
 
 // CHECK-LABEL: func @main(

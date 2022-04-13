@@ -856,6 +856,20 @@ def AXI4MLIRFlowOptions {
   list<Option> options = [
     Option<"flowCpuAcc", "flow-cpu-accumulation", "bool", /*default=*/"false",
            "Decide if code to accumulate on the CPU must be generated">,
+    Option<"numberOfCaches", "number-of-caches", "unsigned", /*default=*/"2",
+           "Number of cache levels in the hierachy for CPU tiling purposes. "
+           "Default: 2. "
+           "Example number-of-caches=2: MEM->L2->L1->Accelerator">,
+    ListOption<"cacheSizes", "cache-sizes", "unsigned", 
+              "Cache sizes in KB. One size per level. "
+              "Example number-of-caches=2 cache-size=512,64",
+              "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"tileSizes", "tile-sizes", "unsigned", 
+               "Tile sizes. Three sizes per cache level. "
+               "Example number-of-caches=1 tile-sizes=12,12,12",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    Option<"elementSize", "element-size", "unsigned", /*default=*/"4",
+           "Element size in Bytes. Default: 4">,
   ];
 }
 
@@ -869,7 +883,7 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
     "LLVM::LLVMDialect",
   ];
   let options = [
-    Option<"tileSize", "tile-size", "unsigned", /*default=*/"4",
+    Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
   ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
 }

@@ -76,7 +76,6 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   Type myType = builder.getF32Type();
   // Type intTy = builder.getI64Type();
   Type intTy = builder.getI32Type();
-  Type indexTy = builder.getIndexType();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
   auto addFuncDecl = [&](StringRef name, FunctionType type) {
@@ -87,9 +86,7 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   };
 
   addFuncDecl(kDmaInit,
-              FunctionType::get(
-                  ctx, {intTy, intTy, intTy, intTy, intTy}, {}));
-                  // ctx, {indexTy, indexTy, indexTy, indexTy, indexTy}, {}));
+              FunctionType::get(ctx, {intTy, intTy, intTy, intTy, intTy}, {}));
   addFuncDecl(kDmaFree, FunctionType::get(ctx, {}, {}));
   addFuncDecl(kCopyToInbufferF32,
               FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
@@ -106,6 +103,18 @@ static void applyPatterns(FuncOp funcOp,
                           const LinalgToAXI4MLIROptions &options) {
   MLIRContext *ctx = funcOp.getContext();
   RewritePatternSet patterns(ctx);
+
+  // z7020 ARM A9 core specs
+  // L1:  32KB 4-way set-associative (instruction and data caches independent
+  // for each CPU) L2: 512KB 8-way set-associative (shared between CPUs)
+
+  // Pynq-z2
+  // z7020 chip
+  // 512MB DDR3 with 16-bit bus @ 1050Mbps
+
+  // Pynq-z2
+  // z7020 chip
+  // 512 Mbyte DDR3
 
   patterns.add<LinalgTilingPattern>(
       MatmulOp::getOperationName(), ctx,
@@ -294,6 +303,15 @@ struct ConvertLinalgToAXI4MLIRPass
     this->dmaOutputAddress = options.dmaOutputAddress;
     this->dmaOutputBufferSize = options.dmaOutputAddress;
     this->flowCpuAcc = options.flowCpuAcc;
+    this->numberOfCaches = options.numberOfCaches;
+    this->cacheSizes = options.cacheSizes;
+    this->tileSizes = options.tileSizes;
+    this->elementSize = options.elementSize;
+  }
+
+  bool areBothSizeOptionsSet() {
+    return (this->cacheSizes.size() > 0 && this->tileSizes.size()) ? true
+                                                                   : false;
   }
 
   void runOnOperation() override {
@@ -305,6 +323,16 @@ struct ConvertLinalgToAXI4MLIRPass
     options.dmaOutputAddress = dmaOutputAddress;
     options.dmaOutputBufferSize = dmaOutputBufferSize;
     options.flowCpuAcc = flowCpuAcc;
+    options.numberOfCaches = numberOfCaches;
+    options.cacheSizes = cacheSizes;
+    options.tileSizes = tileSizes;
+    options.elementSize = elementSize;
+
+    assert(options.numberOfCaches < 4 &&
+           "There is not support for number-of-caches > 3");
+
+    assert(!areBothSizeOptionsSet() &&
+           "Options cache-sizes and tile-sizes cannot be set at the same time");
 
     ModuleOp module = getOperation();
     MLIRContext *ctx = module.getContext();
