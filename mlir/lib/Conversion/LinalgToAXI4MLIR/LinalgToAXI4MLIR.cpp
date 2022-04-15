@@ -98,6 +98,17 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   addFuncDecl(kDmaWaitRecv, FunctionType::get(ctx, {}, {}));
 }
 
+void addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
+                           const StringRef &srcAttrName,
+                           const StringRef &dstAttrName, const unsigned &tsd0,
+                           const unsigned &tsd1, const unsigned &tsd2) {
+  patterns.add<LinalgTilingPattern>(
+      MatmulOp::getOperationName(), ctx,
+      LinalgTilingOptions().setTileSizes({tsd0, tsd1, tsd2}),
+      LinalgTransformationFilter(StringAttr::get(ctx, srcAttrName),
+                                 StringAttr::get(ctx, dstAttrName)));
+}
+
 /// Apply tiling patterns to matmul operations with the correct attribute
 static void applyPatterns(FuncOp funcOp,
                           const LinalgToAXI4MLIROptions &options) {
@@ -106,7 +117,8 @@ static void applyPatterns(FuncOp funcOp,
 
   // z7020 ARM A9 core specs
   // L1:  32KB 4-way set-associative (instruction and data caches independent
-  // for each CPU) L2: 512KB 8-way set-associative (shared between CPUs)
+  // for each CPU) 
+  // L2: 512KB 8-way set-associative (shared between CPUs)
 
   // Pynq-z2
   // z7020 chip
@@ -116,22 +128,65 @@ static void applyPatterns(FuncOp funcOp,
   // z7020 chip
   // 512 Mbyte DDR3
 
-  patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
-      LinalgTilingOptions().setTileSizes({2000, 3000, 4000}),
-      LinalgTransformationFilter(StringAttr::get(ctx, "MEM"),
-                                 StringAttr::get(ctx, "L3")));
-  patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
-      LinalgTilingOptions().setTileSizes({200, 300, 400}),
-      LinalgTransformationFilter(StringAttr::get(ctx, "L3"),
-                                 StringAttr::get(ctx, "L2")));
-  patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
-      LinalgTilingOptions().setTileSizes({20, 30, 40}),
-      LinalgTransformationFilter(StringAttr::get(ctx, "L2"),
-                                 StringAttr::get(ctx, "L1")));
+  //      M       N       K   ELEMSize   Total bytes    Total KB
+  //  1,024   1,024   1,024      4        12,582,912   12,288.00
+  //    512     512     512      4         3,145,728    3,072.00
+  //    256     256     256      4           786,432      768.00
+  //    128     128     128      4           196,608      192.00
+  //     64      64      64      4            49,152       48.00
+  //     32      32      32      4            12,288       12.00
+  //     16      16      16      4             3,072        3.00
+  //      8       8       8      4               768        0.75
+  //      4       4       4      4               192        0.19
+  //      2       2       2      4                48        0.05
 
+  if (options.tileSizes.size() > 0) {
+
+    unsigned tileIdx = 0;
+
+    if (options.numberOfCaches == 3) {
+      addTilingPatternToSet(
+          patterns, ctx, "MEM", "L3", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+
+      addTilingPatternToSet(
+          patterns, ctx, "L3", "L2", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+
+      addTilingPatternToSet(
+          patterns, ctx, "L2", "L1", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+    }
+
+    if (options.numberOfCaches == 2) {
+      addTilingPatternToSet(
+          patterns, ctx, "MEM", "L2", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+
+      addTilingPatternToSet(
+          patterns, ctx, "L2", "L1", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+    }
+
+    if (options.numberOfCaches == 1) {
+      addTilingPatternToSet(
+          patterns, ctx, "MEM", "L1", options.tileSizes[tileIdx + 0],
+          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
+      tileIdx += 3;
+    }
+
+  } else {
+    // If no tile sizes were selected
+    addTilingPatternToSet(patterns, ctx, "MEM", "L1", 4096, 4096, 4096);
+  }
+
+  // At this point relevant operations will have the L1 marker
+  // Only accelerator tiling is missing
   if (options.tileSize > 1) {
     patterns.add<LinalgTilingPattern>(
         MatmulOp::getOperationName(), ctx,
@@ -149,11 +204,6 @@ static void applyPatterns(FuncOp funcOp,
   }
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-
-  // // Drop the marker.
-  // funcOp.walk([](LinalgOp op) {
-  //   op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
-  // });
 }
 
 static void addDMAInitCalls(FuncOp funcOp,

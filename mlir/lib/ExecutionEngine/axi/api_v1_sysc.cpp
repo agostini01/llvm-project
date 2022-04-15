@@ -180,7 +180,7 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                  int64_t mr_offset, const int64_t *mr_sizes,
                                  const int64_t *mr_strides,
                                  unsigned int *src_base,
-                                 const int64_t src_offset) {
+                                 const int src_offset) {
   int64_t rank = mr_rank;
   // Handle empty shapes -> nothing to copy.
   for (int rankp = 0; rankp < rank; ++rankp)
