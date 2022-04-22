@@ -67,7 +67,6 @@ int dma::dma_copy_from_outbuffer(unsigned int *dst_address, int data_length,
   return 0;
 }
 
-// TODO dst is hardcoded for integer
 template <typename T>
 inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                  int64_t mr_offset, const int64_t *mr_sizes,
@@ -82,9 +81,8 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   T *srcPtr;
   srcPtr = mr_base + mr_offset;
 
-  // TODO make templated
-  unsigned int *dstPtr;
-  dstPtr = dst_base + dst_offset;
+  T *dstPtr;
+  dstPtr = reinterpret_cast<T *>(dst_base) + dst_offset;
 
   if (rank == 0) {
     // memcpy(dstPtr, srcPtr, elemSize); // broken
@@ -108,6 +106,25 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   int64_t volatile readIndex = 0;
   int64_t volatile writeIndex = 0;
   for (;;) {
+    D(std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "offset]"
+                << dst_offset << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "SRC]"
+                << srcPtr << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "DST]"
+                << dstPtr << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "load from]" << srcPtr + readIndex << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "store at]" << dstPtr + writeIndex << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "loaded val]" << *(srcPtr + readIndex) << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "stored val]" << *(dstPtr + writeIndex) << "\n";);
+
+    // TODO: Try option 1 again
+    // NOTE: broken memcpy could have been a result of implicit casting
+    //       due to type mismatch
+
     // Copy over the element, byte by byte.
     // memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize); // broken
     *(dstPtr + writeIndex) = *(srcPtr + readIndex); // opt 1
@@ -151,13 +168,11 @@ int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   return 0;
 }
 
-// TODO dst is hardcoded for integer
 template <typename T>
 inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                  int64_t mr_offset, const int64_t *mr_sizes,
                                  const int64_t *mr_strides,
-                                 unsigned int *src_base,
-                                 const int src_offset) {
+                                 unsigned int *src_base, const int src_offset) {
   int64_t rank = mr_rank;
   // Handle empty shapes -> nothing to copy.
   for (int rankp = 0; rankp < rank; ++rankp)
@@ -167,9 +182,8 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   T *dstPtr;
   dstPtr = mr_base + mr_offset;
 
-  // TODO make templated
-  unsigned int *srcPtr;
-  srcPtr = src_base + src_offset;
+  T *srcPtr;
+  srcPtr = reinterpret_cast<T *>(src_base) + src_offset;
 
   if (rank == 0) {
     // memcpy(dstPtr, srcPtr, elemSize); // broken
@@ -193,6 +207,25 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   int64_t volatile readIndex = 0;
   int64_t volatile writeIndex = 0;
   for (;;) {
+    D(std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "offset]"
+                << src_offset << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "SRC]"
+                << srcPtr << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "DST]"
+                << dstPtr << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "load from]" << srcPtr + readIndex << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "store at]" << dstPtr + writeIndex << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "loaded val]" << *(srcPtr + readIndex) << "\n";
+      std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__
+                << "stored val]" << *(dstPtr + writeIndex) << "\n";);
+
+    // TODO: Try option 1 again
+    // NOTE: broken memcpy could have been a result of implicit casting
+    //       due to type mismatch
+
     // Copy over the element, byte by byte.
     // memcpy(dstPtr + writeIndex, srcPtr + readIndex, elemSize); // broken
     *(dstPtr + writeIndex) = *(srcPtr + readIndex); // opt 1

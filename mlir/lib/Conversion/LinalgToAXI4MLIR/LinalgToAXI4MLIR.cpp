@@ -40,6 +40,8 @@ static constexpr const char *kDmaInit = "dma_init";
 static constexpr const char *kDmaFree = "dma_free";
 static constexpr const char *kCopyToInbufferF32 = "copy_to_inbuffer_f32";
 static constexpr const char *kCopyFromOutbufferF32 = "copy_from_outbuffer_f32";
+static constexpr const char *kCopyToInbufferI32 = "copy_to_inbuffer_i32";
+static constexpr const char *kCopyFromOutbufferI32 = "copy_from_outbuffer_i32";
 static constexpr const char *kDmaStartSend = "dma_start_send";
 static constexpr const char *kDmaWaitSend = "dma_wait_send";
 static constexpr const char *kDmaStartRecv = "dma_start_recv";
@@ -73,7 +75,8 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
 
   // Types
   // TODO, for now hardcoded to floats
-  Type myType = builder.getF32Type();
+  // Type myType = builder.getF32Type();
+  Type myType = builder.getI32Type();
   // Type intTy = builder.getI64Type();
   Type intTy = builder.getI32Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
@@ -91,6 +94,10 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   addFuncDecl(kCopyToInbufferF32,
               FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
   addFuncDecl(kCopyFromOutbufferF32,
+              FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
+  addFuncDecl(kCopyToInbufferI32,
+              FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
+  addFuncDecl(kCopyFromOutbufferI32,
               FunctionType::get(ctx, {unrankedType, intTy}, {intTy}));
   addFuncDecl(kDmaStartSend, FunctionType::get(ctx, {intTy, intTy}, {intTy}));
   addFuncDecl(kDmaWaitSend, FunctionType::get(ctx, {}, {}));
@@ -236,7 +243,8 @@ static void addDMAInitCalls(FuncOp funcOp,
 static void castSubViews(linalg::MatmulOp op,
                          const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
-  Type myType = b.getF32Type();
+  // Type myType = b.getF32Type();
+  Type myType = b.getI32Type();
   // Type intTy = b.getI64Type();
   Type intTy = b.getI32Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
@@ -281,9 +289,14 @@ static void castSubViews(linalg::MatmulOp op,
   auto bOffset = aLen;
   auto oOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
 
-  b.create<CallOp>(kCopyToInbufferF32, intTy,
+  // b.create<CallOp>(kCopyToInbufferF32, intTy,
+  //                  SmallVector<Value, 2>({casted[0], aOffset}));
+  // b.create<CallOp>(kCopyToInbufferF32, intTy,
+  //                  SmallVector<Value, 2>({casted[1], bOffset}));
+  
+  b.create<CallOp>(kCopyToInbufferI32, intTy,
                    SmallVector<Value, 2>({casted[0], aOffset}));
-  b.create<CallOp>(kCopyToInbufferF32, intTy,
+  b.create<CallOp>(kCopyToInbufferI32, intTy,
                    SmallVector<Value, 2>({casted[1], bOffset}));
 
   b.create<CallOp>(kDmaStartSend, intTy,
@@ -296,7 +309,9 @@ static void castSubViews(linalg::MatmulOp op,
 
   if (!options.flowCpuAcc) {
     // Results were accumulated on the accelerator (output stationary)
-    b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+    // b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+    //                  SmallVector<Value, 2>({casted[2], oOffset}));
+    b.create<CallOp>(kCopyFromOutbufferI32, intTy,
                      SmallVector<Value, 2>({casted[2], oOffset}));
   } else {
     // Accumulate accelerator results back on output memref/subview
@@ -308,7 +323,9 @@ static void castSubViews(linalg::MatmulOp op,
     unsigned rank = tmpMrType.getRank();
 
     // Copy to the temporary buffer
-    b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+    // b.create<CallOp>(kCopyFromOutbufferF32, intTy,
+    //                  SmallVector<Value, 2>({tCast, oOffset}));
+    b.create<CallOp>(kCopyFromOutbufferI32, intTy,
                      SmallVector<Value, 2>({tCast, oOffset}));
 
     // Create affine maps and attributes
@@ -317,8 +334,24 @@ static void castSubViews(linalg::MatmulOp op,
     auto loopsAttr =
         SmallVector<StringRef>(rank, getParallelIteratorTypeName());
 
+    // // Create print function
+    // b.create<CallOp>("print_memref_f32", intTy,
+    //               SmallVector<Value, 2>({tCast, oOffset}));
+
     // Create the linalg generic op
     Location loc = b.getLoc();
+    // b.create<linalg::GenericOp>(
+    //     /*resultTypes=*/TypeRange(),
+    //     /*inputs=*/tMr,
+    //     /*outputs=*/outSubview,
+    //     /*indexingMaps=*/indexingMaps,
+    //     /*iteratorTypes=*/loopsAttr,
+    //     /*bodyBuilder=*/
+    //     [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
+    //       Value added =
+    //           nestedBuilder.create<arith::AddFOp>(loc, args[0], args[1]);
+    //       nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
+    //     });
     b.create<linalg::GenericOp>(
         /*resultTypes=*/TypeRange(),
         /*inputs=*/tMr,
@@ -328,7 +361,7 @@ static void castSubViews(linalg::MatmulOp op,
         /*bodyBuilder=*/
         [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
           Value added =
-              nestedBuilder.create<arith::AddFOp>(loc, args[0], args[1]);
+              nestedBuilder.create<arith::AddIOp>(loc, args[0], args[1]);
           nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
         });
   }

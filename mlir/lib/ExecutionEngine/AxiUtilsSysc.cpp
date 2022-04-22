@@ -101,14 +101,25 @@ _mlir_ciface_copy_from_outbuffer_f32(UnrankedMemRefType<float> *M) {
   return 0;
 }
 
-extern "C" int copy_from_outbuffer_f32(int64_t rank, void *ptr,
-                                       int offset) {
+extern "C" int copy_from_outbuffer_f32(int64_t rank, void *ptr, int offset) {
   UnrankedMemRefType<float> descriptor = {rank, ptr};
   return _mlir_ciface_copy_from_outbuffer_f32(&descriptor);
 }
 
-extern "C" int mlir_dma_copy_from_outbuffer(const DynamicMemRefType<float> &dst,
-                                            int data_length, int offset) {
+extern "C" int
+_mlir_ciface_copy_from_outbuffer_i32(UnrankedMemRefType<int> *M) {
+  mlir_dma_copy_from_outbuffer(DynamicMemRefType<int>(*M), 0, 0);
+  return 0;
+}
+
+extern "C" int copy_from_outbuffer_i32(int64_t rank, void *ptr, int offset) {
+  UnrankedMemRefType<int> descriptor = {rank, ptr};
+  return _mlir_ciface_copy_from_outbuffer_i32(&descriptor);
+}
+
+template <typename T>
+int mlir_dma_copy_from_outbuffer(const DynamicMemRefType<T> &dst,
+                                 int data_length, int offset) {
   std::cout << "Called: " << __func__ << " sysc version" << std::endl;
   myDMA.mlir_dma_copy_from_outbuffer(dst.data, dst.rank, dst.rank, dst.offset,
                                      dst.sizes, dst.strides, offset);

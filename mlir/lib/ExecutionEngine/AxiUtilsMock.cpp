@@ -86,6 +86,11 @@ extern "C" int copy_from_outbuffer_f32(int64_t rank, void *ptr, int offset) {
   return 0;
 }
 
+extern "C" int copy_from_outbuffer_i32(int64_t rank, void *ptr, int offset) {
+  UnrankedMemRefType<int> descriptor = {rank, ptr};
+  return 0;
+}
+
 extern "C" int dma_start_send(int length, int offset) {
   std::cout << "Called: " << __func__ << std::endl;
   return 0;
