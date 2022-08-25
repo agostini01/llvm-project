@@ -247,7 +247,7 @@ static void addDMAInitCalls(FuncOp funcOp,
 ///      Type int64Ty = b.getI64Type();
 ///      int64_t counter = 0;
 ///      auto value = b.create<arith::ConstantOp>(IntegerAttr::get(int64Ty,
-///                   counter)); 
+///                   counter));
 ///      auto printer =
 ///          LLVM::lookupOrCreatePrintI64Fn(op->getParentOfType<ModuleOp>());
 ///
@@ -255,7 +255,7 @@ static void addDMAInitCalls(FuncOp funcOp,
 ///        LLVM::lookupOrCreatePrintOpenFn(op->getParentOfType<ModuleOp>()));
 ///
 ///      value = b.create<arith::ConstantOp>(IntegerAttr::get(int64Ty,
-///              counter++)); 
+///              counter++));
 ///      emitCall(b, printer, {value}); // 0
 ///
 ///      emitCall(b,
@@ -317,7 +317,7 @@ static void castSubViews(linalg::MatmulOp op,
   //                  SmallVector<Value, 2>({casted[0], aOffset}));
   // b.create<CallOp>(kCopyToInbufferF32, intTy,
   //                  SmallVector<Value, 2>({casted[1], bOffset}));
-  
+
   b.create<CallOp>(kCopyToInbufferI32, intTy,
                    SmallVector<Value, 2>({casted[0], aOffset}));
   b.create<CallOp>(kCopyToInbufferI32, intTy,
@@ -436,7 +436,7 @@ struct ConvertLinalgToAXI4MLIRPass
     options.elementSize = elementSize;
 
     assert(options.numberOfCaches < 4 &&
-           "There is not support for number-of-caches > 3");
+           "There is no support for number-of-caches > 3");
 
     assert(!areBothSizeOptionsSet() &&
            "Options cache-sizes and tile-sizes cannot be set at the same time");
