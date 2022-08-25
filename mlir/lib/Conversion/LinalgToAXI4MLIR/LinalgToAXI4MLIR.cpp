@@ -313,11 +313,6 @@ static void castSubViews(linalg::MatmulOp op,
   auto bOffset = aLen;
   auto oOffset = b.create<arith::ConstantOp>(IntegerAttr::get(intTy, 0));
 
-  // b.create<CallOp>(kCopyToInbufferF32, intTy,
-  //                  SmallVector<Value, 2>({casted[0], aOffset}));
-  // b.create<CallOp>(kCopyToInbufferF32, intTy,
-  //                  SmallVector<Value, 2>({casted[1], bOffset}));
-
   b.create<CallOp>(kCopyToInbufferI32, intTy,
                    SmallVector<Value, 2>({casted[0], aOffset}));
   b.create<CallOp>(kCopyToInbufferI32, intTy,
@@ -333,8 +328,6 @@ static void castSubViews(linalg::MatmulOp op,
 
   if (!options.flowCpuAcc) {
     // Results were accumulated on the accelerator (output stationary)
-    // b.create<CallOp>(kCopyFromOutbufferF32, intTy,
-    //                  SmallVector<Value, 2>({casted[2], oOffset}));
     b.create<CallOp>(kCopyFromOutbufferI32, intTy,
                      SmallVector<Value, 2>({casted[2], oOffset}));
   } else {
@@ -347,8 +340,6 @@ static void castSubViews(linalg::MatmulOp op,
     unsigned rank = tmpMrType.getRank();
 
     // Copy to the temporary buffer
-    // b.create<CallOp>(kCopyFromOutbufferF32, intTy,
-    //                  SmallVector<Value, 2>({tCast, oOffset}));
     b.create<CallOp>(kCopyFromOutbufferI32, intTy,
                      SmallVector<Value, 2>({tCast, oOffset}));
 
@@ -364,18 +355,6 @@ static void castSubViews(linalg::MatmulOp op,
 
     // Create the linalg generic op
     Location loc = b.getLoc();
-    // b.create<linalg::GenericOp>(
-    //     /*resultTypes=*/TypeRange(),
-    //     /*inputs=*/tMr,
-    //     /*outputs=*/outSubview,
-    //     /*indexingMaps=*/indexingMaps,
-    //     /*iteratorTypes=*/loopsAttr,
-    //     /*bodyBuilder=*/
-    //     [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
-    //       Value added =
-    //           nestedBuilder.create<arith::AddFOp>(loc, args[0], args[1]);
-    //       nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
-    //     });
     b.create<linalg::GenericOp>(
         /*resultTypes=*/TypeRange(),
         /*inputs=*/tMr,
