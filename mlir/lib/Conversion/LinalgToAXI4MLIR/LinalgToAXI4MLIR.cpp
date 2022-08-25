@@ -265,10 +265,9 @@ static void emitCall(ImplicitLocOpBuilder &builder, Operation *ref,
   builder.create<LLVM::CallOp>(TypeRange(), SymbolRefAttr::get(ref), params);
 }
 
-static void castSubViews(linalg::MatmulOp op,
+static void generateRuntime(linalg::MatmulOp op,
                          const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
-  // Type myType = b.getF32Type();
   Type myType = b.getI32Type();
   Type intTy = b.getI32Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
@@ -442,7 +441,7 @@ struct ConvertLinalgToAXI4MLIRPass
 
     module.walk([&](linalg::MatmulOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
-        castSubViews(op, options);
+        generateRuntime(op, options);
     });
 
     return;
