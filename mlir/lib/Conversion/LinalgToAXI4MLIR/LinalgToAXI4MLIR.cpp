@@ -14,6 +14,8 @@
 
 #include "mlir/Conversion/LinalgToAXI4MLIR/LinalgToAXI4MLIR.h"
 
+#include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
+
 #include "../PassDetail.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -74,7 +76,7 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   MLIRContext *ctx = module.getContext();
 
   // Types
-  // TODO, for now hardcoded to floats
+  // TODO, for now hardcoded
   // Type myType = builder.getF32Type();
   Type myType = builder.getI32Type();
   // Type intTy = builder.getI64Type();
@@ -124,7 +126,7 @@ static void applyPatterns(FuncOp funcOp,
 
   // z7020 ARM A9 core specs
   // L1:  32KB 4-way set-associative (instruction and data caches independent
-  // for each CPU) 
+  // for each CPU)
   // L2: 512KB 8-way set-associative (shared between CPUs)
 
   // Pynq-z2
@@ -240,12 +242,34 @@ static void addDMAInitCalls(FuncOp funcOp,
   b.create<CallOp>(kDmaFree, TypeRange());
 }
 
+/// Helper to emit a call.
+/// Usage example:
+///      Type int64Ty = b.getI64Type();
+///      int64_t counter = 0;
+///      auto value = b.create<arith::ConstantOp>(IntegerAttr::get(int64Ty,
+///                   counter)); 
+///      auto printer =
+///          LLVM::lookupOrCreatePrintI64Fn(op->getParentOfType<ModuleOp>());
+///
+///      emitCall(b,
+///        LLVM::lookupOrCreatePrintOpenFn(op->getParentOfType<ModuleOp>()));
+///
+///      value = b.create<arith::ConstantOp>(IntegerAttr::get(int64Ty,
+///              counter++)); 
+///      emitCall(b, printer, {value}); // 0
+///
+///      emitCall(b,
+///               LLVM::lookupOrCreatePrintCloseFn(op->getParentOfType<ModuleOp>()));
+static void emitCall(ImplicitLocOpBuilder &builder, Operation *ref,
+                     ValueRange params = ValueRange()) {
+  builder.create<LLVM::CallOp>(TypeRange(), SymbolRefAttr::get(ref), params);
+}
+
 static void castSubViews(linalg::MatmulOp op,
                          const LinalgToAXI4MLIROptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   // Type myType = b.getF32Type();
   Type myType = b.getI32Type();
-  // Type intTy = b.getI64Type();
   Type intTy = b.getI32Type();
   Type unrankedType = UnrankedMemRefType::get(myType, 0);
 
