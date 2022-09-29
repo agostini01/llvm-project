@@ -14,6 +14,7 @@
 #ifndef MLIR_INITALLDIALECTS_H_
 #define MLIR_INITALLDIALECTS_H_
 
+#include "mlir/Dialect/Accel/IR/Accel.h"
 #include "mlir/Dialect/AMX/AMXDialect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -56,6 +57,7 @@ namespace mlir {
 inline void registerAllDialects(DialectRegistry &registry) {
   // clang-format off
   registry.insert<acc::OpenACCDialect,
+                  accel::AccelDialect,
                   AffineDialect,
                   arith::ArithmeticDialect,
                   amx::AMXDialect,

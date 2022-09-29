@@ -1,6 +1,7 @@
 // RUN: mlir-opt --show-dialects | FileCheck %s
 // CHECK: Available Dialects:
 // CHECK-NEXT: acc
+// CHECK-NEXT: accel
 // CHECK-NEXT: affine
 // CHECK-NEXT: amx
 // CHECK-NEXT: arith

@@ -1,3 +1,4 @@
+add_subdirectory(Accel)
 add_subdirectory(Affine)
 add_subdirectory(Arithmetic)
 add_subdirectory(Async)
