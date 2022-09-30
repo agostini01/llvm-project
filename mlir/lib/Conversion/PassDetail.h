@@ -25,6 +25,10 @@ namespace acc {
 class OpenACCDialect;
 } // namespace acc
 
+namespace accel {
+class AccelDialect;
+} // namespace accel
+
 namespace arith {
 class ArithmeticDialect;
 } // namespace arith

@@ -888,5 +888,20 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
 }
 
+//===----------------------------------------------------------------------===//
+// AccelToAXI4MLIR
+//===----------------------------------------------------------------------===//
+
+def ConvertAccelToAXI4MLIR : Pass<"test-accel-to-axi4mlir", "ModuleOp"> {
+  let summary = "Convert accel ops into AXI4MLIR runtime calls";
+  let constructor = "mlir::createConvertAccelToAXI4MLIRPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect",
+    "LLVM::LLVMDialect",
+  ];
+}
+
 
 #endif // MLIR_CONVERSION_PASSES

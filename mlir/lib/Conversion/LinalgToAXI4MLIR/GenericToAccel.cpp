@@ -1,1 +1,0 @@
-// Implements Generic to accel conversions

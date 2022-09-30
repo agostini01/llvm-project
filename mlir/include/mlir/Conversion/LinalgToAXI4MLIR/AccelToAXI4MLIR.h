@@ -1,4 +1,4 @@
-//===- AccelToRuntime.h - Convert Linalg to AXI4MLIR calls ----*- C++ -*-===//
+//===- AccelToAXI4MLIR.h - Convert Accel to AXI4MLIR calls ----*- C++ -*-===//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -18,7 +18,7 @@ class ModuleOp;
 template <typename T>
 class OperationPass;
 
-struct AccelToRuntimeOptions {
+struct AccelToAXI4MLIROptions {
   /// Accelerator Tile Size information
   unsigned tileSize = 1;
 
@@ -37,17 +37,21 @@ struct AccelToRuntimeOptions {
   unsigned elementSize = false;
 };
 
-/// Collect a set of patterns to convert from the Linagl dialect to AXI4MLIR
-/// calls
-void populateAccelToRuntimeConversionPatterns(
+/// Populate the given list with patterns that convert from Accel to AXI4MLIR
+/// runtime calls.
+void populateAccelToAXI4MLIRConversionPatterns(RewritePatternSet &patterns);
+
+/// Populate the given list with patterns that convert from Accel to AXI4MLIR
+/// runtime calls.
+void populateAccelToAXI4MLIRConversionPatternsWithOptions(
     RewritePatternSet &patterns,
-    const AccelToRuntimeOptions &options = AccelToRuntimeOptions());
+    const AccelToAXI4MLIROptions &options = AccelToAXI4MLIROptions());
 
-// /// Create a pass to convert a linalg.matmul to axi4mlir calls
-std::unique_ptr<OperationPass<ModuleOp>> createConvertAccelToRuntimePass();
+/// Create the pass to convert accel operations to axi4mlir calls
+std::unique_ptr<OperationPass<ModuleOp>> createConvertAccelToAXI4MLIRPass();
 
-std::unique_ptr<OperationPass<ModuleOp>> createConvertAccelToRuntimePass(
-    const AccelToRuntimeOptions &options);
+std::unique_ptr<OperationPass<ModuleOp>>
+createConvertAccelToAXI4MLIRPass(const AccelToAXI4MLIROptions &options);
 
 } // namespace mlir
 

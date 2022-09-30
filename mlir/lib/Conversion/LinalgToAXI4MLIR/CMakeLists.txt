@@ -1,7 +1,7 @@
 add_mlir_conversion_library(MLIRLinalgToAXI4MLIR
   LinalgToAXI4MLIR.cpp
-  AccelToRuntime.cpp
-  GenericToAccel.cpp
+  AccelToAXI4MLIR.cpp
+  LinalgGenericToAccel.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Conversion/LinalgToAXI4MLIR
@@ -14,6 +14,7 @@ add_mlir_conversion_library(MLIRLinalgToAXI4MLIR
 
   LINK_LIBS PUBLIC
   MLIRArithmetic
+  MLIRAccel
   MLIRLLVMIR
   MLIRMemRef
   MLIRTransforms
