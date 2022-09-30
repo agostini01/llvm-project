@@ -84,4 +84,21 @@ def Accel_SendOp : Accel_Op<"send"> {
   }];
 }
 
+def Accel_RecvOp : Accel_Op<"recv"> {
+  let summary = "receive data from the DMA region into the MemRef";
+  let description = [{
+    TODO
+  }];
+  let arguments = (ins AnyMemRef:$memref,
+                       Optional<I32>:$offset_value);
+
+
+  let results = (outs I32:$out_offset);
+
+  let assemblyFormat = [{
+    $memref (`,` $offset_value^)?  attr-dict `:` 
+    `(` type($memref) (`,` type($offset_value)^)? `)` `->` type($out_offset)
+  }];
+}
+
 #endif // ACCEL_OPS

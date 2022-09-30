@@ -27,3 +27,9 @@ func @test_send_with_offset(%A: memref<60x80xf32>, %offset0: i32) -> i32 {
   return %offset : i32
 }
 
+// CHECK-LABEL: test_recv_with_offset
+func @test_recv_with_offset(%A: memref<60x80xf32>, %offset0: i32) -> i32 {
+  %offset = accel.recv %A, %offset0  : (memref<60x80xf32> , i32) -> i32
+  return %offset : i32
+}
+
