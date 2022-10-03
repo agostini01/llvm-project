@@ -78,8 +78,76 @@ public:
     assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
 
     rewriter.replaceOpWithNewOp<CallOp>(op, name, /*TODO no type?*/ TypeRange(),
-                                              op->getOperands());
-    module->emitWarning();
+                                        op->getOperands());
+    return success();
+  }
+};
+
+class SendToAXI4MLIRCall : public OpRewritePattern<accel::SendOp> {
+public:
+  using OpRewritePattern<accel::SendOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(accel::SendOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto module = SymbolTable::getNearestSymbolTable(op);
+    Location loc = op->getLoc();
+
+    // TODO: Name has to match memref type
+    auto name = kCopyToInbufferI32;
+    auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
+        SymbolTable::lookupSymbolIn(module, name));
+
+    Type intTy = rewriter.getI32Type();
+    Value input = op.getInput();
+    auto inputType = input.getType().dyn_cast_or_null<MemRefType>();
+    if (!inputType)
+      return failure();
+    auto myType = inputType.getElementType();
+    Type unrankedType = UnrankedMemRefType::get(myType, 0);
+
+    Value casted = rewriter.create<memref::CastOp>(loc, unrankedType, input);
+
+    // Forward declare function if it hasn't already been
+    if (!opFunc) {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
+
+      auto opFunctionTy = FunctionType::get(rewriter.getContext(),
+                                            {unrankedType, intTy}, {intTy});
+      rewriter.create<FuncOp>(rewriter.getUnknownLoc(), name, opFunctionTy)
+          .setPrivate();
+      // rewriter.create<FuncOp>(rewriter.getUnknownLoc(), kDmaStartSend,
+      // FunctionType::get(rewriter.getContext(), {intTy, intTy}, {intTy}))
+      //     .setPrivate();
+      // rewriter.create<FuncOp>(rewriter.getUnknownLoc(), kDmaWaitSend,
+      // FunctionType::get(rewriter.getContext(), {}, {}))
+      //     .setPrivate();
+    }
+    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+
+    auto initOffset = op.getOffsetValue();
+    if (!initOffset) {
+      // op->emitWarning() << "does not have offset";
+      initOffset =
+          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
+    }
+
+    rewriter.create<CallOp>(loc, name, intTy,
+                            SmallVector<Value, 2>({casted, initOffset}));
+
+    int numElements = inputType.getNumElements();
+    int bitWidth = inputType.getElementTypeBitWidth();
+    int bytes = numElements * bitWidth / 8;
+    Value resultOffset =
+        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
+    // TODO: Issue sync
+    // b.create<CallOp>(kDmaStartSend, intTy,
+    //              SmallVector<Value, 2>({totalLen, aOffset}));
+    //   b.create<CallOp>(kDmaWaitSend, TypeRange());
+
+    rewriter.replaceOp(op, {resultOffset});
+
     return success();
   }
 };
@@ -87,7 +155,7 @@ public:
 void mlir::populateAccelToAXI4MLIRConversionPatterns(
     RewritePatternSet &patterns) {
   patterns.add<InitDMAToAXI4MLIRCall>(patterns.getContext());
-  // patterns.add<SendToAXI4MLIRCall>(patterns.getContext());
+  patterns.add<SendToAXI4MLIRCall>(patterns.getContext());
   // patterns.add<RecvDMAToAXI4MLIRCall>(patterns.getContext());
 }
 
@@ -105,8 +173,13 @@ void ConvertAccelToAXI4MLIRPass::runOnOperation() {
   populateAccelToAXI4MLIRConversionPatterns(patterns);
 
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithmeticDialect, BuiltinDialect,
+  // clang-format off
+  target.addLegalDialect<scf::SCFDialect,
+                         memref::MemRefDialect, 
+                         arith::ArithmeticDialect, 
+                         BuiltinDialect,
                          StandardOpsDialect>();
+  // clang-format on
   target.addIllegalDialect<accel::AccelDialect>();
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();

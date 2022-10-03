@@ -72,15 +72,15 @@ def Accel_SendOp : Accel_Op<"send"> {
   let description = [{
     TODO
   }];
-  let arguments = (ins AnyMemRef:$memref,
+  let arguments = (ins AnyMemRef:$input,
                        Optional<I32>:$offset_value);
 
 
   let results = (outs I32:$out_offset);
 
   let assemblyFormat = [{
-    $memref (`,` $offset_value^)?  attr-dict `:` 
-    `(` type($memref) (`,` type($offset_value)^)? `)` `->` type($out_offset)
+    $input (`,` $offset_value^)?  attr-dict `:` 
+    `(` type($input) (`,` type($offset_value)^)? `)` `->` type($out_offset)
   }];
 }
 
