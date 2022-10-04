@@ -104,31 +104,31 @@ public:
     if (!inputType)
       return failure();
     auto myType = inputType.getElementType();
-    Type unrankedType = UnrankedMemRefType::get(myType, 0);
+    Type mrTy = UnrankedMemRefType::get(myType, 0);
 
-    Value casted = rewriter.create<memref::CastOp>(loc, unrankedType, input);
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
 
-    // Forward declare function if it hasn't already been
-    if (!opFunc) {
+    // Forward declare functions if it hasn't already been
+    if (!opFunc) { // TODO: check for the other function names
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(&module->getRegion(0).front());
 
-      auto opFunctionTy = FunctionType::get(rewriter.getContext(),
-                                            {unrankedType, intTy}, {intTy});
-      rewriter.create<FuncOp>(rewriter.getUnknownLoc(), name, opFunctionTy)
-          .setPrivate();
-      // rewriter.create<FuncOp>(rewriter.getUnknownLoc(), kDmaStartSend,
-      // FunctionType::get(rewriter.getContext(), {intTy, intTy}, {intTy}))
-      //     .setPrivate();
-      // rewriter.create<FuncOp>(rewriter.getUnknownLoc(), kDmaWaitSend,
-      // FunctionType::get(rewriter.getContext(), {}, {}))
-      //     .setPrivate();
+      Location uLoc = rewriter.getUnknownLoc();
+      FunctionType fType;
+
+      fType = FunctionType::get(rewriter.getContext(), {mrTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+      fType = FunctionType::get(rewriter.getContext(), {intTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
+
+      fType = FunctionType::get(rewriter.getContext(), {}, {});
+      rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
     }
     assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
 
     auto initOffset = op.getOffsetValue();
     if (!initOffset) {
-      // op->emitWarning() << "does not have offset";
       initOffset =
           rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
     }
@@ -139,13 +139,15 @@ public:
     int numElements = inputType.getNumElements();
     int bitWidth = inputType.getElementTypeBitWidth();
     int bytes = numElements * bitWidth / 8;
+
+    Value nElements = rewriter.create<arith::ConstantOp>(
+        loc, IntegerAttr::get(intTy, numElements));
+    rewriter.create<CallOp>(loc, kDmaStartSend, intTy,
+                            SmallVector<Value, 2>({nElements, initOffset}));
+    rewriter.create<CallOp>(loc, kDmaWaitSend, TypeRange());
+
     Value resultOffset =
         rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
-    // TODO: Issue sync
-    // b.create<CallOp>(kDmaStartSend, intTy,
-    //              SmallVector<Value, 2>({totalLen, aOffset}));
-    //   b.create<CallOp>(kDmaWaitSend, TypeRange());
-
     rewriter.replaceOp(op, {resultOffset});
 
     return success();
