@@ -49,31 +49,26 @@ public:
   LogicalResult matchAndRewrite(accel::InitDMAOp op,
                                 PatternRewriter &rewriter) const override {
 
-    // // Lambda to declare a function
-    // auto addFuncDecl = [&](StringRef name, FunctionType type) {
-    //   if (module.lookupSymbol<FuncOp>(name))
-    //     return;
-    //   rewriter.create<FuncOp>(name, type).setPrivate();
-    //   assert(
-    //       isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module,
-    //       name)));
-    // };
-
     auto module = SymbolTable::getNearestSymbolTable(op);
 
     auto name = kDmaInit;
     auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
         SymbolTable::lookupSymbolIn(module, name));
     // Forward declare function if it hasn't already been
-    if (!opFunc) {
+    if (!opFunc) { // TODO: Check dma_free
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(&module->getRegion(0).front());
 
+      MLIRContext *ctx = rewriter.getContext();
+      Location uLoc = rewriter.getUnknownLoc();
       Type intTy = rewriter.getI32Type();
-      auto opFunctionTy = FunctionType::get(
-          rewriter.getContext(), {intTy, intTy, intTy, intTy, intTy}, {});
-      rewriter.create<FuncOp>(rewriter.getUnknownLoc(), name, opFunctionTy)
-          .setPrivate();
+      FunctionType fType;
+
+      fType = FunctionType::get(ctx, {intTy, intTy, intTy, intTy, intTy}, {});
+      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+      fType = FunctionType::get(ctx, {}, {});
+      rewriter.create<FuncOp>(uLoc, kDmaFree, fType).setPrivate();
     }
     assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
 
@@ -113,16 +108,17 @@ public:
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPointToStart(&module->getRegion(0).front());
 
+      MLIRContext *ctx = rewriter.getContext();
       Location uLoc = rewriter.getUnknownLoc();
       FunctionType fType;
 
-      fType = FunctionType::get(rewriter.getContext(), {mrTy, intTy}, {intTy});
+      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
       rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
 
-      fType = FunctionType::get(rewriter.getContext(), {intTy, intTy}, {intTy});
+      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
       rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
 
-      fType = FunctionType::get(rewriter.getContext(), {}, {});
+      fType = FunctionType::get(ctx, {}, {});
       rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
     }
     assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
