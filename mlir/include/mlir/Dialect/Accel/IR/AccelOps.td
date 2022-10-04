@@ -89,15 +89,15 @@ def Accel_RecvOp : Accel_Op<"recv"> {
   let description = [{
     TODO
   }];
-  let arguments = (ins AnyMemRef:$memref,
+  let arguments = (ins AnyMemRef:$dst,
                        Optional<I32>:$offset_value);
 
 
   let results = (outs I32:$out_offset);
 
   let assemblyFormat = [{
-    $memref (`,` $offset_value^)?  attr-dict `:` 
-    `(` type($memref) (`,` type($offset_value)^)? `)` `->` type($out_offset)
+    $dst (`,` $offset_value^)?  attr-dict `:` 
+    `(` type($dst) (`,` type($offset_value)^)? `)` `->` type($out_offset)
   }];
 }
 

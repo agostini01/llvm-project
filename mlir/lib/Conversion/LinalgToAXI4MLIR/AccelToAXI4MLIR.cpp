@@ -129,6 +129,7 @@ public:
           rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
     }
 
+    // Recv flow: copy, start, wait
     rewriter.create<CallOp>(loc, name, intTy,
                             SmallVector<Value, 2>({casted, initOffset}));
 
@@ -150,11 +151,84 @@ public:
   }
 };
 
+class RecvToAXI4MLIRCall : public OpRewritePattern<accel::RecvOp> {
+public:
+  using OpRewritePattern<accel::RecvOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(accel::RecvOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto module = SymbolTable::getNearestSymbolTable(op);
+    Location loc = op->getLoc();
+
+    // TODO: Name has to match memref type
+    auto name = kCopyFromOutbufferI32;
+    auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
+        SymbolTable::lookupSymbolIn(module, name));
+
+    Type intTy = rewriter.getI32Type();
+    Value dst = op.getDst();
+    auto inputType = dst.getType().dyn_cast_or_null<MemRefType>();
+    if (!inputType)
+      return failure();
+    auto myType = inputType.getElementType();
+    Type mrTy = UnrankedMemRefType::get(myType, 0);
+
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, dst);
+
+    // Forward declare functions if it hasn't already been
+    if (!opFunc) { // TODO: check for the other function names
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
+
+      MLIRContext *ctx = rewriter.getContext();
+      Location uLoc = rewriter.getUnknownLoc();
+      FunctionType fType;
+
+      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, kDmaStartRecv, fType).setPrivate();
+
+      fType = FunctionType::get(ctx, {}, {});
+      rewriter.create<FuncOp>(uLoc, kDmaWaitRecv, fType).setPrivate();
+    }
+    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+
+    auto initOffset = op.getOffsetValue();
+    if (!initOffset) {
+      initOffset =
+          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
+    }
+
+    int numElements = inputType.getNumElements();
+    int bitWidth = inputType.getElementTypeBitWidth();
+    int bytes = numElements * bitWidth / 8;
+
+    Value nElements = rewriter.create<arith::ConstantOp>(
+        loc, IntegerAttr::get(intTy, numElements));
+
+    // Recv flow: start, wait, copy
+    rewriter.create<CallOp>(loc, kDmaStartRecv, intTy,
+                            SmallVector<Value, 2>({nElements, initOffset}));
+    rewriter.create<CallOp>(loc, kDmaWaitRecv, TypeRange());
+    rewriter.create<CallOp>(loc, name, intTy,
+                            SmallVector<Value, 2>({casted, initOffset}));
+
+    Value resultOffset =
+        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
+    rewriter.replaceOp(op, {resultOffset});
+
+    return success();
+  }
+};
+
 void mlir::populateAccelToAXI4MLIRConversionPatterns(
     RewritePatternSet &patterns) {
   patterns.add<InitDMAToAXI4MLIRCall>(patterns.getContext());
   patterns.add<SendToAXI4MLIRCall>(patterns.getContext());
-  // patterns.add<RecvDMAToAXI4MLIRCall>(patterns.getContext());
+  patterns.add<RecvToAXI4MLIRCall>(patterns.getContext());
 }
 
 namespace {
