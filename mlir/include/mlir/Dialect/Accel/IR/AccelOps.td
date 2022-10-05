@@ -15,7 +15,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 
 // Base class for accel dialect ops. 
 class Accel_Op<string mnemonic, list<Trait> traits = []> :
-    Op<Accel_Dialect, mnemonic, traits # [NoSideEffect] >;
+    Op<Accel_Dialect, mnemonic, traits>;
 
 //===----------------------------------------------------------------------===//
 // dmaInitOp
