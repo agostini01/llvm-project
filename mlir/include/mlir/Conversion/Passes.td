@@ -889,6 +889,25 @@ def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// LinalgToAXI4MLIR
+//===----------------------------------------------------------------------===//
+def ConvertLinalgGenericToAccel : Pass<"test-generic-to-accel", "ModuleOp"> {
+  let summary = "Convert Linalg Generic Accel Ops";
+  let constructor = "mlir::createConvertLinalgGenericToAccelPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "memref::MemRefDialect",
+    "accel::AccelDialect",
+    "scf::SCFDialect",
+    "LLVM::LLVMDialect",
+  ];
+  // let options = [
+  //   Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
+  //          "Use this tile size for all loops">,
+  // ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
+}
+
+//===----------------------------------------------------------------------===//
 // AccelToAXI4MLIR
 //===----------------------------------------------------------------------===//
 

@@ -37,9 +37,11 @@ struct LinalgGenericToAccelOptions {
   unsigned elementSize = false;
 };
 
-/// Populate the given list with patterns that convert from Accel to AXI4MLIR
-/// runtime calls.
-void populateLinalgGenericToAccelConversionPatterns(
+/// Populate the given list with patterns that convert from LinalgOps to AccelOps
+void populateLinalgGenericToAccelConversionPatterns(RewritePatternSet &patterns);
+
+/// Populate the given list with patterns that convert from LinalgOps to AccelOps
+void populateLinalgGenericToAccelConversionPatternsWithOptions(
     RewritePatternSet &patterns,
     const LinalgGenericToAccelOptions &options = LinalgGenericToAccelOptions());
 
