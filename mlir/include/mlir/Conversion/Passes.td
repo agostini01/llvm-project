@@ -873,6 +873,22 @@ def AXI4MLIRFlowOptions {
   ];
 }
 
+def AXI4MLIRAcceleratorOptions {
+  list<Option> options = [
+    Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
+           "Use this tile size for all loops">,
+  ];
+}
+
+def AXI4MLIRAnchorOptions {
+  list<Option> options = [
+    Option<"anchorFuncName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
+    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
+      "Which linalg op within the func is the anchor to latch on.">,
+  ];
+}
+
 def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
   let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
@@ -905,6 +921,11 @@ def ConvertLinalgGenericToAccel : Pass<"test-generic-to-accel", "ModuleOp"> {
   //   Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
   //          "Use this tile size for all loops">,
   // ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
+  
+  let options = [] # AXI4MLIRDMAOptions.options 
+                   # AXI4MLIRFlowOptions.options 
+                   # AXI4MLIRAcceleratorOptions.options 
+                   # AXI4MLIRAnchorOptions.options;
 }
 
 //===----------------------------------------------------------------------===//

@@ -35,6 +35,10 @@ struct LinalgGenericToAccelOptions {
   ArrayRef<unsigned> cacheSizes;
   ArrayRef<unsigned> tileSizes;
   unsigned elementSize = false;
+
+  /// Anchor
+  std::string anchorFuncName;
+  std::string anchorOpName;
 };
 
 /// Populate the given list with patterns that convert from LinalgOps to AccelOps

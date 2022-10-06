@@ -104,7 +104,42 @@ void mlir::populateLinalgGenericToAccelConversionPatterns(
 namespace {
 struct ConvertLinalgGenericToAccelPass
     : public ConvertLinalgGenericToAccelBase<ConvertLinalgGenericToAccelPass> {
+  ConvertLinalgGenericToAccelPass() = default;
+  
+  /// Constructor to build this pass using user defined options
+  ConvertLinalgGenericToAccelPass(const LinalgGenericToAccelOptions &options) {
+    this->tileSize = options.tileSize;
+    this->dmaAddress = options.dmaAddress;
+    this->dmaInputAddress = options.dmaInputAddress;
+    this->dmaInputBufferSize = options.dmaInputBufferSize;
+    this->dmaOutputAddress = options.dmaOutputAddress;
+    this->dmaOutputBufferSize = options.dmaOutputAddress;
+    this->flowCpuAcc = options.flowCpuAcc;
+    this->numberOfCaches = options.numberOfCaches;
+    this->cacheSizes = options.cacheSizes;
+    this->tileSizes = options.tileSizes;
+    this->elementSize = options.elementSize;
+    this->anchorFuncName = options.anchorFuncName;
+    this->anchorOpName = options.anchorOpName   ;
+  }
+
   void runOnOperation() override;
+
+  void loadOptions(LinalgGenericToAccelOptions &options) {
+    options.tileSize = this->tileSize;
+    options.dmaAddress = this->dmaAddress;
+    options.dmaInputAddress = this->dmaInputAddress;
+    options.dmaInputBufferSize = this->dmaInputBufferSize;
+    options.dmaOutputAddress = this->dmaOutputAddress;
+    options.dmaOutputBufferSize = this->dmaOutputBufferSize;
+    options.flowCpuAcc = this->flowCpuAcc;
+    options.numberOfCaches = this->numberOfCaches;
+    options.cacheSizes = this->cacheSizes;
+    options.tileSizes = this->tileSizes;
+    options.elementSize = this->elementSize;
+    options.anchorFuncName = this->anchorFuncName;
+    options.anchorOpName = this->anchorOpName;
+  };
 };
 } // namespace
 
@@ -124,7 +159,6 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
                          BuiltinDialect,
                          StandardOpsDialect>();
   // clang-format on
-  // target.addIllegalOp<linalg::GenericOp>();
   target.addDynamicallyLegalOp<linalg::GenericOp>(
       [&](linalg::GenericOp op) -> bool {
         return !(op->getAttr(kAccelTransformMarker) ==
@@ -137,4 +171,10 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createConvertLinalgGenericToAccelPass() {
   return std::make_unique<ConvertLinalgGenericToAccelPass>();
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createConvertLinalgGenericToAccelPass(
+    const LinalgGenericToAccelOptions &options) {
+  return std::make_unique<ConvertLinalgGenericToAccelPass>(options);
 }
