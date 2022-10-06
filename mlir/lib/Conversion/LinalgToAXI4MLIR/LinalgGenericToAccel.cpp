@@ -23,18 +23,21 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
 
 using namespace mlir;
 
+const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
 const StringLiteral kAccelTransformMarker = "__accel_transform__";
-const StringLiteral kAccel_dmaAddress_Marker = "accel_dmaAddress";
-const StringLiteral kAccel_dmaInputAddress_Marker = "accel_dmaInputAddress";
-const StringLiteral kAccel_dmaInputBufferSize_Marker = "accel_dmaInputBufferSize";
-const StringLiteral kAccel_dmaOuputAddress_Marker = "accel_dmaOutputAddress";
-const StringLiteral kAccel_dmaOuputBufferSize_Marker = "accel_dmaOutputBufferSize";
+const StringLiteral kAccel_dmaAddress = "accel_dmaAddress";
+const StringLiteral kAccel_dmaInputAddress = "accel_dmaInputAddress";
+const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
+const StringLiteral kAccel_dmaOuputAddress = "accel_dmaOutputAddress";
+const StringLiteral kAccel_dmaOuputBufferSize = "accel_dmaOutputBufferSize";
 
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
@@ -110,7 +113,7 @@ namespace {
 struct ConvertLinalgGenericToAccelPass
     : public ConvertLinalgGenericToAccelBase<ConvertLinalgGenericToAccelPass> {
   ConvertLinalgGenericToAccelPass() = default;
-  
+
   /// Constructor to build this pass using user defined options
   ConvertLinalgGenericToAccelPass(const LinalgGenericToAccelOptions &options) {
     this->tileSize = options.tileSize;
@@ -125,7 +128,7 @@ struct ConvertLinalgGenericToAccelPass
     this->tileSizes = options.tileSizes;
     this->elementSize = options.elementSize;
     this->anchorFuncName = options.anchorFuncName;
-    this->anchorOpName = options.anchorOpName   ;
+    this->anchorOpName = options.anchorOpName;
   }
 
   void runOnOperation() override;
@@ -154,7 +157,7 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   loadOptions(options);
 
   auto module = getOperation();
-  MLIRContext * ctx = &getContext();
+  MLIRContext *ctx = &getContext();
 
   // Mark linalg operations based on anchor-op
   module.walk([&](FuncOp functionOp) {
@@ -164,10 +167,21 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
     functionOp.walk([&](linalg::LinalgOp op) {
       if (anchorOpName.empty() || anchorOpName != op->getName().getStringRef())
         return;
-      if (!op->getAttr(kAccelTransformMarker))
-        op->setAttr(kAccelTransformMarker, StringAttr::get(&getContext(), "ACCEL"));
+      if (!op->getAttr(kAccelTransformMarker)) {
+        op->setAttr(kLinalgTransformMarker,
+                    StringAttr::get(&getContext(), "generalize"));
+      }
     });
   });
+
+  // Generalize anchor-ops with a nested pass manager
+  PassManager pm(module.getContext());
+  linalg::LinalgTransformationFilter f(StringAttr::get(ctx, "generalize"),
+                                       StringAttr::get(ctx, "ACCEL"));
+  pm.addNestedPass<FuncOp>(
+      mlir::createLinalgStrategyGeneralizePass(anchorOpName, f));
+  if (failed(pm.run(module)))
+    signalPassFailure();
 
   RewritePatternSet patterns(&getContext());
   populateLinalgGenericToAccelConversionPatterns(patterns);
@@ -184,8 +198,9 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   // clang-format on
   target.addDynamicallyLegalOp<linalg::GenericOp>(
       [&](linalg::GenericOp op) -> bool {
-        return !(op->getAttr(kAccelTransformMarker) ==
-                 StringAttr::get(&getContext(), "ACCEL"));
+        auto marker = StringAttr::get(&getContext(), "ACCEL");
+        return !((op->getAttr(kAccelTransformMarker) == marker) ||
+                 (op->getAttr(kLinalgTransformMarker) == marker));
       });
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
