@@ -30,6 +30,11 @@
 using namespace mlir;
 
 const StringLiteral kAccelTransformMarker = "__accel_transform__";
+const StringLiteral kAccel_dmaAddress_Marker = "accel_dmaAddress";
+const StringLiteral kAccel_dmaInputAddress_Marker = "accel_dmaInputAddress";
+const StringLiteral kAccel_dmaInputBufferSize_Marker = "accel_dmaInputBufferSize";
+const StringLiteral kAccel_dmaOuputAddress_Marker = "accel_dmaOutputAddress";
+const StringLiteral kAccel_dmaOuputBufferSize_Marker = "accel_dmaOutputBufferSize";
 
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
@@ -144,7 +149,25 @@ struct ConvertLinalgGenericToAccelPass
 } // namespace
 
 void ConvertLinalgGenericToAccelPass::runOnOperation() {
+
+  LinalgGenericToAccelOptions options;
+  loadOptions(options);
+
   auto module = getOperation();
+  MLIRContext * ctx = &getContext();
+
+  // Mark linalg operations based on anchor-op
+  module.walk([&](FuncOp functionOp) {
+    if (!anchorFuncName.empty() && anchorFuncName != functionOp.getName())
+      return;
+
+    functionOp.walk([&](linalg::LinalgOp op) {
+      if (anchorOpName.empty() || anchorOpName != op->getName().getStringRef())
+        return;
+      if (!op->getAttr(kAccelTransformMarker))
+        op->setAttr(kAccelTransformMarker, StringAttr::get(&getContext(), "ACCEL"));
+    });
+  });
 
   RewritePatternSet patterns(&getContext());
   populateLinalgGenericToAccelConversionPatterns(patterns);
