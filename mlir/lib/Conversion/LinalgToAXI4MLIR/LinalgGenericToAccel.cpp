@@ -38,7 +38,52 @@ const StringLiteral kAccel_dmaInputAddress = "accel_dmaInputAddress";
 const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
 const StringLiteral kAccel_dmaOuputAddress = "accel_dmaOutputAddress";
 const StringLiteral kAccel_dmaOuputBufferSize = "accel_dmaOutputBufferSize";
+const StringLiteral kAccel_acc_on_cpu = "accel_acc_on_cpu";
 
+IntegerAttr getU32IntegerAttr(PatternRewriter &rewriter, unsigned value) {
+  return rewriter.getIntegerAttr(rewriter.getIntegerType(32, false), value);
+}
+
+/// Sets operation Attrs used in generic to accel conversion
+class GenericAttrAnnotation : public OpRewritePattern<linalg::GenericOp> {
+public:
+  using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
+
+  /// Construct a generic pattern applied to all GenericOp that verify `filter`.
+  GenericAttrAnnotation(
+      MLIRContext *context,
+      // LinalgTransformationFilter f = LinalgTransformationFilter(),
+      LinalgGenericToAccelOptions options = LinalgGenericToAccelOptions(),
+      PatternBenefit benefit = 1)
+      : OpRewritePattern<linalg::GenericOp>(context, benefit),
+        options(std::move(options)) {}
+
+  LogicalResult matchAndRewrite(linalg::GenericOp op,
+                                PatternRewriter &rewriter) const override {
+    rewriter.startRootUpdate(op);
+    // op->setAttr(kAccel_dmaAddress,
+    //             rewriter.getI32IntegerAttr(options.dmaAddress));
+    op->setAttr(kAccel_dmaAddress,
+                getU32IntegerAttr(rewriter, options.dmaAddress));
+    op->setAttr(kAccel_dmaInputAddress,
+                rewriter.getI32IntegerAttr(options.dmaInputAddress));
+    op->setAttr(kAccel_dmaInputBufferSize,
+                rewriter.getI32IntegerAttr(options.dmaInputBufferSize));
+    op->setAttr(kAccel_dmaOuputAddress,
+                rewriter.getI32IntegerAttr(options.dmaOutputAddress));
+    op->setAttr(kAccel_dmaOuputBufferSize,
+                rewriter.getI32IntegerAttr(options.dmaOutputBufferSize));
+    op->setAttr(kAccel_acc_on_cpu, rewriter.getBoolAttr(options.flowCpuAcc));
+    rewriter.finalizeRootUpdate(op);
+    return success();
+  }
+
+private:
+  LinalgGenericToAccelOptions options;
+};
+
+/// Rewrites GenericOp as a series of of accel.<operations>
+/// Expects the correct attributes to be already set
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
@@ -60,11 +105,8 @@ public:
 
     initialOffset = cteZero;
     for (Value operand : op.outputs()) {
-      // TODO: If accumulate on the CPU, must create a temporary buffer
-      bool optionsAccOnCPU = true;
-      if (optionsAccOnCPU) {
+      if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu).getValue()) {
         MemRefType mrType = operand.getType().cast<MemRefType>();
-        // MemRefType::get({options.tileSize, options.tileSize}, myType);
         Value tMr = rewriter.create<memref::AllocaOp>(loc, mrType);
         rewriter.create<accel::RecvOp>(
             loc, rewriter.getI32Type(), tMr,
@@ -79,7 +121,6 @@ public:
         auto loopsAttr =
             SmallVector<StringRef>(rank, getParallelIteratorTypeName());
 
-        // Create the linalg generic op
         rewriter.create<linalg::GenericOp>(
             loc,
             /*resultTypes=*/TypeRange(),
@@ -104,8 +145,9 @@ public:
   }
 };
 
-void mlir::populateLinalgGenericToAccelConversionPatterns(
-    RewritePatternSet &patterns) {
+void mlir::populateLinalgGenericToAccelConversionPatternsWithOptions(
+    RewritePatternSet &patterns, const LinalgGenericToAccelOptions &options) {
+  patterns.add<GenericAttrAnnotation>(patterns.getContext(), options, 2);
   patterns.add<LinalgGenericToAccel>(patterns.getContext());
 }
 
@@ -115,6 +157,8 @@ struct ConvertLinalgGenericToAccelPass
   ConvertLinalgGenericToAccelPass() = default;
 
   /// Constructor to build this pass using user defined options
+  /// Not used when the pass is created from commandline, helpful for creating
+  /// this pass in code
   ConvertLinalgGenericToAccelPass(const LinalgGenericToAccelOptions &options) {
     this->tileSize = options.tileSize;
     this->dmaAddress = options.dmaAddress;
@@ -133,7 +177,7 @@ struct ConvertLinalgGenericToAccelPass
 
   void runOnOperation() override;
 
-  void loadOptions(LinalgGenericToAccelOptions &options) {
+  void setOptions(LinalgGenericToAccelOptions &options) {
     options.tileSize = this->tileSize;
     options.dmaAddress = this->dmaAddress;
     options.dmaInputAddress = this->dmaInputAddress;
@@ -147,19 +191,40 @@ struct ConvertLinalgGenericToAccelPass
     options.elementSize = this->elementSize;
     options.anchorFuncName = this->anchorFuncName;
     options.anchorOpName = this->anchorOpName;
-  };
+  }
 };
 } // namespace
 
+void LinalgGenericToAccelOptions::dump() const {
+  llvm::errs() << "dmaAddress\t\t " << dmaAddress << "\n"
+               << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
+               << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"
+               << "dmaOutputAddress\t " << dmaOutputAddress << "\n"
+               << "dmaOutputBufferSize\t " << dmaOutputBufferSize << "\n"
+               << "flowCpuAcc\t\t " << flowCpuAcc << "\n"
+               << "numberOfCaches\t\t " << numberOfCaches
+               << "\n"
+               //  << "cacheSizes\t " << cacheSizes << "\n"
+               //  << "tileSizes\t " << tileSizes << "\n"
+               << "elementSize\t\t " << elementSize << "\n"
+               << "anchorFuncName\t\t " << anchorFuncName << "\n"
+               << "anchorOpName\t\t " << anchorOpName << "\n";
+}
+
+/// The conversion takes the following steps:
+///   1. Marks anchor ops with the "generalize" attribute
+///   2. Generalizes the marked ops, marking the Ops with the "ACCEL" attribute
+///   3. Annotate attributes to the marked ops
+///   4. Convert the marked ops to the accel dialect
 void ConvertLinalgGenericToAccelPass::runOnOperation() {
 
   LinalgGenericToAccelOptions options;
-  loadOptions(options);
+  setOptions(options);
 
   auto module = getOperation();
   MLIRContext *ctx = &getContext();
 
-  // Mark linalg operations based on anchor-op
+  // 1. Marks anchor ops with the "generalize" attribute
   module.walk([&](FuncOp functionOp) {
     if (!anchorFuncName.empty() && anchorFuncName != functionOp.getName())
       return;
@@ -174,7 +239,8 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
     });
   });
 
-  // Generalize anchor-ops with a nested pass manager
+  // 2. Generalizes the marked ops, marking the Ops with the "ACCEL" attribute
+  // Uses a nested pass manager
   PassManager pm(module.getContext());
   linalg::LinalgTransformationFilter f(StringAttr::get(ctx, "generalize"),
                                        StringAttr::get(ctx, "ACCEL"));
@@ -183,8 +249,11 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   if (failed(pm.run(module)))
     signalPassFailure();
 
+  // Using rewrite patterns
+  // 3. Annotate attributes to the marked ops
+  // 4. Convert the marked ops to the accel dialect
   RewritePatternSet patterns(&getContext());
-  populateLinalgGenericToAccelConversionPatterns(patterns);
+  populateLinalgGenericToAccelConversionPatternsWithOptions(patterns, options);
 
   ConversionTarget target(getContext());
   // clang-format off
@@ -211,8 +280,8 @@ mlir::createConvertLinalgGenericToAccelPass() {
   return std::make_unique<ConvertLinalgGenericToAccelPass>();
 }
 
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertLinalgGenericToAccelPass(
-    const LinalgGenericToAccelOptions &options) {
-  return std::make_unique<ConvertLinalgGenericToAccelPass>(options);
-}
+// std::unique_ptr<OperationPass<ModuleOp>>
+// mlir::createConvertLinalgGenericToAccelPass(
+//     const LinalgGenericToAccelOptions &options) {
+//   return std::make_unique<ConvertLinalgGenericToAccelPass>(options);
+// }

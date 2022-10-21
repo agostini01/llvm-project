@@ -1,4 +1,5 @@
-//===- LinalgGenericToAccel.h - Convert linalg to AXI4MLIR calls ----*- C++ -*-===//
+//===- LinalgGenericToAccel.h - Convert linalg to AXI4MLIR calls ----*- C++
+//-*-===//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -39,18 +40,20 @@ struct LinalgGenericToAccelOptions {
   /// Anchor
   std::string anchorFuncName;
   std::string anchorOpName;
+
+public:
+  /// Utility to print members of the struct
+  void dump() const;
 };
 
-/// Populate the given list with patterns that convert from LinalgOps to AccelOps
-void populateLinalgGenericToAccelConversionPatterns(RewritePatternSet &patterns);
-
-/// Populate the given list with patterns that convert from LinalgOps to AccelOps
+/// Populate the list with patterns that convert from LinalgOps to AccelOps
 void populateLinalgGenericToAccelConversionPatternsWithOptions(
     RewritePatternSet &patterns,
     const LinalgGenericToAccelOptions &options = LinalgGenericToAccelOptions());
 
-/// Create the pass to convert accel operations to axi4mlir calls
-std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgGenericToAccelPass();
+/// Create the pass to convert from LinalgOps to AccelOps
+std::unique_ptr<OperationPass<ModuleOp>>
+createConvertLinalgGenericToAccelPass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgGenericToAccelPass(
     const LinalgGenericToAccelOptions &options);

@@ -1,5 +1,8 @@
 // RUN: mlir-opt %s --test-generic-to-accel | FileCheck %s
 // RUN: mlir-opt %s --test-generic-to-accel=anchor-op=linalg.matmul | FileCheck %s --check-prefix=ANCHOR
+// RUN: mlir-opt %s --test-generic-to-accel=anchor-op=linalg.matmul | FileCheck %s --check-prefix=ANCHOR
+// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul flow-cpu-accumulation=true' | FileCheck %s --check-prefix=CPUACC
+
 
 
 #matmul_trait = {
@@ -17,9 +20,7 @@
 // CHECK-LABEL: func @test_accel_transform
 // CHECK:       accel.send
 // CHECK:       accel.send
-// CHECK:       memref.alloc
 // CHECK:       accel.recv
-// CHECK:       linalg.generic
 func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   linalg.generic #matmul_trait
@@ -51,12 +52,18 @@ func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memre
 // CHECK-LABEL: func @test_multiple_outputs
 // CHECK:       accel.send
 // CHECK:       accel.send
-// CHECK:       memref.alloc
 // CHECK:       accel.recv
-// CHECK:       linalg.generic
-// CHECK:       memref.alloc
 // CHECK:       accel.recv
-// CHECK:       linalg.generic
+
+// CPUACC-LABEL: func @test_multiple_outputs
+// CPUACC:       accel.send
+// CPUACC:       accel.send
+// CPUACC:       memref.alloc
+// CPUACC:       accel.recv
+// CPUACC:       linalg.generic
+// CPUACC:       memref.alloc
+// CPUACC:       accel.recv
+// CPUACC:       linalg.generic
 func @test_multiple_outputs(%A: memref<16x8xi32>, %B: memref<16x8xi32>, 
                             %C: memref<8x16xi32>, %D: memref<8x16xi32>) {
   linalg.generic #double_transpose_trait
@@ -76,9 +83,7 @@ func @test_multiple_outputs(%A: memref<16x8xi32>, %B: memref<16x8xi32>,
 // ANCHOR:       linalg.fill
 // ANCHOR:       accel.send
 // ANCHOR:       accel.send
-// ANCHOR:       memref.alloc
 // ANCHOR:       accel.recv
-// ANCHOR:       linalg.generic
 func @test_accel_transform_from_matmul(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   %0 = arith.constant 0 : i32
