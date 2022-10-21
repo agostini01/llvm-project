@@ -74,6 +74,11 @@ public:
 
     rewriter.replaceOpWithNewOp<CallOp>(op, name, /*TODO no type?*/ TypeRange(),
                                         op->getOperands());
+    // TODO: this may create several DMA frees, but only one is needed 
+    rewriter.setInsertionPoint(op->getBlock()->getTerminator());
+    rewriter.create<CallOp>(rewriter.getUnknownLoc(), kDmaFree,
+                            /*TODO no type?*/ TypeRange(), ValueRange());
+
     return success();
   }
 };

@@ -129,11 +129,6 @@ public:
         valuesForInitDMA[0], valuesForInitDMA[1], valuesForInitDMA[2],
         valuesForInitDMA[3], valuesForInitDMA[4]);
     
-    // // Get location of last operation inside funcOp
-    // Location funcBackLoc = funcOp.back().back().getLoc();
-    // // Create the accel.free_dma operation
-    // rewriter.create<accel::FreeDMAOp>(funcBackLoc);
-    
     rewriter.setInsertionPoint(op);
 
     Value cteZero = rewriter.create<arith::ConstantOp>(

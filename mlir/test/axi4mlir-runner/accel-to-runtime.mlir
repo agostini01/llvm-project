@@ -4,8 +4,12 @@
 // CHECK: func private @dma_init
 // CHECK-NOT: func private @dma_init
 
+// CHECK: func private @dma_free
+// CHECK-NOT: func private @dma_free
+
 // CHECK-LABEL: test_init_dma
 // CHECK:         call @dma_init(%arg0
+// CHECK:         call @dma_free
 func @test_init_dma(
   %dmaAddress : i32,
   %dmaInputAddress : i32,
@@ -23,6 +27,7 @@ func @test_init_dma(
 // CHECK:         call @dma_init(%arg0
 // CHECK-NEXT:    call @dma_init(%arg1
 // CHECK-NEXT:    call @dma_init(%arg2
+// CHECK:         call @dma_free
 func @test_init_dma2(
   %dmaAddress : i32,
   %dmaAddress1 : i32,

@@ -24,21 +24,9 @@ class Accel_Op<string mnemonic, list<Trait> traits = []> :
 def Accel_InitDMAOp : Accel_Op<"init_dma"> {
   let summary = "initializes the DMA";
   let description = [{
-    The `abs` operation computes the absolute value. It takes one operand and
-    returns one result of the same type. This type may be a float scalar type,
-    a vector whose element type is float, or a tensor of floats.
-
-    Example:
-
-    ```mlir
-    // Scalar absolute value.
-    %a = accel.abs %b : f64
-
-    // SIMD vector element-wise absolute value.
-    %f = accel.abs %g : vector<4xf32>
-
-    // Tensor element-wise absolute value.
-    %x = accel.abs %y : tensor<4x?xf8>
+    During lowering to AXI4MLIR calls, this op is lowered to a call to
+    `dma_init` at the beginning of the operation scope/basic block, and
+    a call to `dma_free` at the end of the operation scope/basic block.
     ```
   }];
   let arguments = (ins SignlessIntegerLike:$dmaAddress,
