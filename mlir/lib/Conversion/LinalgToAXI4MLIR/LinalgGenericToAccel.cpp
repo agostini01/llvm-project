@@ -61,10 +61,10 @@ public:
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
     rewriter.startRootUpdate(op);
-    // op->setAttr(kAccel_dmaAddress,
-    //             rewriter.getI32IntegerAttr(options.dmaAddress));
     op->setAttr(kAccel_dmaAddress,
-                getU32IntegerAttr(rewriter, options.dmaAddress));
+                rewriter.getI32IntegerAttr(options.dmaAddress));
+    // op->setAttr(kAccel_dmaAddress,
+    //             getU32IntegerAttr(rewriter, options.dmaAddress));
     op->setAttr(kAccel_dmaInputAddress,
                 rewriter.getI32IntegerAttr(options.dmaInputAddress));
     op->setAttr(kAccel_dmaInputBufferSize,
@@ -82,6 +82,24 @@ private:
   LinalgGenericToAccelOptions options;
 };
 
+/// Function to materialize DMA attributes as constants
+static void materializeDMAConstants(PatternRewriter &rewriter, 
+                                    Operation *op,
+                                    Location loc,
+                                    SmallVector<Value, 5> &values) {
+  Type intTy = rewriter.getI32Type();
+  values.push_back(rewriter.create<arith::ConstantOp>(
+      loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaAddress)));
+  values.push_back(rewriter.create<arith::ConstantOp>(
+      loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaInputAddress)));
+  values.push_back(rewriter.create<arith::ConstantOp>(
+      loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaInputBufferSize)));
+  values.push_back(rewriter.create<arith::ConstantOp>(
+      loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaOuputAddress)));
+  values.push_back(rewriter.create<arith::ConstantOp>(
+      loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaOuputBufferSize)));
+}
+
 /// Rewrites GenericOp as a series of of accel.<operations>
 /// Expects the correct attributes to be already set
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
@@ -93,6 +111,30 @@ public:
 
     auto module = SymbolTable::getNearestSymbolTable(op);
     Location loc = op->getLoc();
+
+    // Get location before first operation inside funcOp
+    FuncOp funcOp = op->getParentOfType<FuncOp>();
+    // Location funcFrontLoc = funcOp.front().front().getLoc();
+
+    rewriter.setInsertionPointToStart(&funcOp.front());
+    Location funcFrontLoc = rewriter.getInsertionPoint()->getLoc();
+
+    SmallVector<Value,5> valuesForInitDMA;
+    materializeDMAConstants(rewriter, op, funcFrontLoc, valuesForInitDMA);
+
+    // TODO check if such operation already exists for the same DMA address
+    // Create the accel.init_dma operation
+    rewriter.create<accel::InitDMAOp>(
+        funcFrontLoc,
+        valuesForInitDMA[0], valuesForInitDMA[1], valuesForInitDMA[2],
+        valuesForInitDMA[3], valuesForInitDMA[4]);
+    
+    // // Get location of last operation inside funcOp
+    // Location funcBackLoc = funcOp.back().back().getLoc();
+    // // Create the accel.free_dma operation
+    // rewriter.create<accel::FreeDMAOp>(funcBackLoc);
+    
+    rewriter.setInsertionPoint(op);
 
     Value cteZero = rewriter.create<arith::ConstantOp>(
         loc, IntegerAttr::get(rewriter.getI32Type(), 0));

@@ -1,9 +1,6 @@
 // RUN: mlir-opt %s --test-generic-to-accel | FileCheck %s
 // RUN: mlir-opt %s --test-generic-to-accel=anchor-op=linalg.matmul | FileCheck %s --check-prefix=ANCHOR
-// RUN: mlir-opt %s --test-generic-to-accel=anchor-op=linalg.matmul | FileCheck %s --check-prefix=ANCHOR
 // RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul flow-cpu-accumulation=true' | FileCheck %s --check-prefix=CPUACC
-
-
 
 #matmul_trait = {
   __accel_transform__="ACCEL",
@@ -18,6 +15,7 @@
 }
 
 // CHECK-LABEL: func @test_accel_transform
+// CHECK:       accel.init_dma
 // CHECK:       accel.send
 // CHECK:       accel.send
 // CHECK:       accel.recv
@@ -50,12 +48,14 @@ func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memre
 }
 
 // CHECK-LABEL: func @test_multiple_outputs
+// CHECK:       accel.init_dma
 // CHECK:       accel.send
 // CHECK:       accel.send
 // CHECK:       accel.recv
 // CHECK:       accel.recv
 
 // CPUACC-LABEL: func @test_multiple_outputs
+// CPUACC:       accel.init_dma
 // CPUACC:       accel.send
 // CPUACC:       accel.send
 // CPUACC:       memref.alloc
@@ -80,6 +80,7 @@ func @test_multiple_outputs(%A: memref<16x8xi32>, %B: memref<16x8xi32>,
 // CHECK:       linalg.matmul
 
 // ANCHOR-LABEL: func @test_accel_transform_from_matmul
+// ANCHOR:       accel.init_dma
 // ANCHOR:       linalg.fill
 // ANCHOR:       accel.send
 // ANCHOR:       accel.send
