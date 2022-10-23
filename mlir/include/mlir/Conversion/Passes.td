@@ -889,6 +889,15 @@ def AXI4MLIRAnchorOptions {
   ];
 }
 
+def AXI4MLIROpcodeOptions {
+  list<Option> options = [
+    Option<"opcodeMap", "opcode-map", "std::string", /*default=*/"",
+      "A string representing the dictionary that maps opcodes to transfers.">,
+    Option<"opcodeFlow", "opcode-flow", "std::string", /*default=*/"",
+      "A string representing the flow of opcodes using the opcode-map.">,
+  ];
+}
+
 def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
   let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
@@ -925,7 +934,8 @@ def ConvertLinalgGenericToAccel : Pass<"test-generic-to-accel", "ModuleOp"> {
   let options = [] # AXI4MLIRDMAOptions.options 
                    # AXI4MLIRFlowOptions.options 
                    # AXI4MLIRAcceleratorOptions.options 
-                   # AXI4MLIRAnchorOptions.options;
+                   # AXI4MLIRAnchorOptions.options
+                   # AXI4MLIROpcodeOptions.options;
 }
 
 //===----------------------------------------------------------------------===//

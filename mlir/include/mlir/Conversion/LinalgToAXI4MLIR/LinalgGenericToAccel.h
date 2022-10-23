@@ -40,6 +40,10 @@ struct LinalgGenericToAccelOptions {
   /// Anchor
   std::string anchorFuncName;
   std::string anchorOpName;
+  
+  /// Opcode information
+  std::string opcodeMap;
+  std::string opcodeFlow;
 
 public:
   /// Utility to print members of the struct

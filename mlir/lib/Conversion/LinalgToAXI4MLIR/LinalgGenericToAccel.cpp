@@ -39,6 +39,10 @@ const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
 const StringLiteral kAccel_dmaOuputAddress = "accel_dmaOutputAddress";
 const StringLiteral kAccel_dmaOuputBufferSize = "accel_dmaOutputBufferSize";
 const StringLiteral kAccel_acc_on_cpu = "accel_acc_on_cpu";
+const StringLiteral kAccel_opcode_map = "accel_opcode_map";
+const StringLiteral kAccel_opcode_map_str = "accel_opcode_map_str";
+const StringLiteral kAccel_opcode_flow = "accel_opcode_flow";
+const StringLiteral kAccel_opcode_flow_str = "accel_opcode_flow_str";
 
 IntegerAttr getU32IntegerAttr(PatternRewriter &rewriter, unsigned value) {
   return rewriter.getIntegerAttr(rewriter.getIntegerType(32, false), value);
@@ -61,10 +65,10 @@ public:
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
     rewriter.startRootUpdate(op);
+
+    // DMA Attributes
     op->setAttr(kAccel_dmaAddress,
                 rewriter.getI32IntegerAttr(options.dmaAddress));
-    // op->setAttr(kAccel_dmaAddress,
-    //             getU32IntegerAttr(rewriter, options.dmaAddress));
     op->setAttr(kAccel_dmaInputAddress,
                 rewriter.getI32IntegerAttr(options.dmaInputAddress));
     op->setAttr(kAccel_dmaInputBufferSize,
@@ -74,7 +78,30 @@ public:
     op->setAttr(kAccel_dmaOuputBufferSize,
                 rewriter.getI32IntegerAttr(options.dmaOutputBufferSize));
     op->setAttr(kAccel_acc_on_cpu, rewriter.getBoolAttr(options.flowCpuAcc));
+
+    // OpcodeMap Attribute
+    // as string
+    op->setAttr(kAccel_opcode_map_str,
+                rewriter.getStringAttr(options.opcodeMap));
+
+    // as dictionary
+    // TODO
+    DictionaryAttr dictAttr = rewriter.getDictionaryAttr(rewriter.getNamedAttr(
+        "sA", /*Bool array attr*/ rewriter.getArrayAttr(
+            {rewriter.getBoolAttr(true), rewriter.getBoolAttr(false)})));
+    op->setAttr(kAccel_opcode_map, dictAttr);
+
+    // OpcodeFlow Attribute
+    // as string
+    op->setAttr(kAccel_opcode_flow_str,
+                rewriter.getStringAttr(options.opcodeFlow));
+
+    // TODO - must parse the string inputs to get the identifiers and placement
+    // op->setAttr(kAccel_opcode_flow,
+    //             rewriter.getStringAttr(options.opcodeFlow));
+
     rewriter.finalizeRootUpdate(op);
+    op.emitWarning() << "GenericAttrAnnotation";
     return success();
   }
 
@@ -83,8 +110,7 @@ private:
 };
 
 /// Function to materialize DMA attributes as constants
-static void materializeDMAConstants(PatternRewriter &rewriter, 
-                                    Operation *op,
+static void materializeDMAConstants(PatternRewriter &rewriter, Operation *op,
                                     Location loc,
                                     SmallVector<Value, 5> &values) {
   Type intTy = rewriter.getI32Type();
@@ -119,16 +145,15 @@ public:
     rewriter.setInsertionPointToStart(&funcOp.front());
     Location funcFrontLoc = rewriter.getInsertionPoint()->getLoc();
 
-    SmallVector<Value,5> valuesForInitDMA;
+    SmallVector<Value, 5> valuesForInitDMA;
     materializeDMAConstants(rewriter, op, funcFrontLoc, valuesForInitDMA);
 
     // TODO check if such operation already exists for the same DMA address
     // Create the accel.init_dma operation
-    rewriter.create<accel::InitDMAOp>(
-        funcFrontLoc,
-        valuesForInitDMA[0], valuesForInitDMA[1], valuesForInitDMA[2],
-        valuesForInitDMA[3], valuesForInitDMA[4]);
-    
+    rewriter.create<accel::InitDMAOp>(funcFrontLoc, valuesForInitDMA[0],
+                                      valuesForInitDMA[1], valuesForInitDMA[2],
+                                      valuesForInitDMA[3], valuesForInitDMA[4]);
+
     rewriter.setInsertionPoint(op);
 
     Value cteZero = rewriter.create<arith::ConstantOp>(
@@ -210,6 +235,8 @@ struct ConvertLinalgGenericToAccelPass
     this->elementSize = options.elementSize;
     this->anchorFuncName = options.anchorFuncName;
     this->anchorOpName = options.anchorOpName;
+    this->opcodeMap = options.opcodeMap;
+    this->opcodeFlow = options.opcodeFlow;
   }
 
   void runOnOperation() override;
@@ -228,6 +255,8 @@ struct ConvertLinalgGenericToAccelPass
     options.elementSize = this->elementSize;
     options.anchorFuncName = this->anchorFuncName;
     options.anchorOpName = this->anchorOpName;
+    options.opcodeMap = this->opcodeMap;
+    options.opcodeFlow = this->opcodeFlow;
   }
 };
 } // namespace
@@ -245,7 +274,9 @@ void LinalgGenericToAccelOptions::dump() const {
                //  << "tileSizes\t " << tileSizes << "\n"
                << "elementSize\t\t " << elementSize << "\n"
                << "anchorFuncName\t\t " << anchorFuncName << "\n"
-               << "anchorOpName\t\t " << anchorOpName << "\n";
+               << "anchorOpName\t\t " << anchorOpName << "\n"
+               << "opcodeMap\t\t " << opcodeMap << "\n"
+               << "opcodeFlow\t\t " << opcodeFlow << "\n";
 }
 
 /// The conversion takes the following steps:
