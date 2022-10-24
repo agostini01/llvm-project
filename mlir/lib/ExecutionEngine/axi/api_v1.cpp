@@ -39,9 +39,9 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
 }
 
 void dma::dma_free() {
-  munmap(dma_input_address, dma_input_buffer_size / 4);
-  munmap(dma_output_address, dma_output_buffer_size / 4);
-  munmap(dma_address, getpagesize() / 4);
+  munmap(dma_input_address, dma_input_buffer_size);
+  munmap(dma_output_address, dma_output_buffer_size);
+  munmap(dma_address, getpagesize());
 }
 
 // We could reduce to one set of the following calls
@@ -368,11 +368,14 @@ void dma::initDMAControls() {
 }
 
 void dma::dma_set(unsigned int *dma_address, int offset, unsigned int value) {
-  dma_address[offset >> 2] = value;
+  *((volatile unsigned int*) (reinterpret_cast<char *>(dma_address) + offset)) = value;
+  // dma_address[offset >> 2] = value;
 }
 
 unsigned int dma::dma_get(unsigned int *dma_address, int offset) {
-  return dma_address[offset >> 2];
+    return *((volatile unsigned int*) (reinterpret_cast<char *>(dma_address) + offset));
+  // return *((volatile unsigned int*) dma_address[offset >> 2]);
+  // return dma_address[offset >> 2];
 }
 
 void dma::dma_mm2s_sync() {
