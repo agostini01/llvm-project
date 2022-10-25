@@ -36,6 +36,7 @@ struct LinalgGenericToAccelOptions {
   ArrayRef<unsigned> cacheSizes;
   ArrayRef<unsigned> tileSizes;
   unsigned elementSize = false;
+  ArrayRef<unsigned> permutationMap;
 
   /// Anchor
   std::string anchorFuncName;

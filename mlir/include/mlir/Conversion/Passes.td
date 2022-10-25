@@ -868,6 +868,9 @@ def AXI4MLIRFlowOptions {
                "Tile sizes. Three sizes per cache level. "
                "Example number-of-caches=1 tile-sizes=12,12,12",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"permutationMap", "permutation-map", "unsigned", 
+               "Permute loop order. Example mnk -> mkn permutation-map=0,2,1",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"elementSize", "element-size", "unsigned", /*default=*/"4",
            "Element size in Bytes. Default: 4">,
   ];
