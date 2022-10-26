@@ -5,8 +5,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_CONVERSION_LINALGTOAXI4MLIR_AXI4MLIRUTILS_H__
-#define MLIR_CONVERSION_LINALGTOAXI4MLIR_AXI4MLIRUTILS_H__
+#ifndef MLIR_CONVERSION_LINALGTOAXI4MLIR_UTILS_H_
+#define MLIR_CONVERSION_LINALGTOAXI4MLIR_UTILS_H_
 
 #include "mlir/IR/PatternMatch.h"
 
@@ -33,7 +33,7 @@ struct AccelTransformationOptions {
   ArrayRef<unsigned> cacheSizes;
   ArrayRef<unsigned> tileSizes;
   unsigned elementSize = false;
-  ArrayRef<unsigned> permutationMap;
+  ArrayRef<unsigned> loopPermutation;
 
   /// Anchor
   std::string anchorFuncName;
@@ -58,4 +58,4 @@ void addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
 
 } // namespace mlir
 
-#endif // MLIR_CONVERSION_LINALGTOAXI4MLIR_AXI4MLIRUTILS_H__
+#endif // MLIR_CONVERSION_LINALGTOAXI4MLIR_UTILS_H_

@@ -43,7 +43,7 @@ const StringLiteral kAccel_opcode_map = "accel_opcode_map";
 const StringLiteral kAccel_opcode_map_str = "accel_opcode_map_str";
 const StringLiteral kAccel_opcode_flow = "accel_opcode_flow";
 const StringLiteral kAccel_opcode_flow_str = "accel_opcode_flow_str";
-const StringLiteral kAccel_permutation_map = "accel_permutation_map";
+const StringLiteral kAccel_loop_permutation = "accel_loop_permutation";
 
 IntegerAttr getU32IntegerAttr(PatternRewriter &rewriter, unsigned value) {
   return rewriter.getIntegerAttr(rewriter.getIntegerType(32, false), value);
@@ -101,9 +101,9 @@ public:
     // op->setAttr(kAccel_opcode_flow,
     //             rewriter.getStringAttr(options.opcodeFlow));
 
-    // TODO - PermutationMap Attribute, it is a array of integers attribute
-    // op->setAttr(kAccel_permutation_map,
-    //             rewriter.getArrayAttr(options.permutationMap));
+    // TODO - LoopPermutation Attribute, it is a array of integers attribute
+    // op->setAttr(kAccel_loop_permutation,
+    //             rewriter.getArrayAttr(options.loopPermutation));
 
     rewriter.finalizeRootUpdate(op);
     op.emitWarning() << "GenericAttrAnnotation";
@@ -242,7 +242,7 @@ struct ConvertLinalgGenericToAccelPass
     this->anchorOpName = options.anchorOpName;
     this->opcodeMap = options.opcodeMap;
     this->opcodeFlow = options.opcodeFlow;
-    this->permutationMap = options.permutationMap;
+    this->loopPermutation = options.loopPermutation;
   }
 
   void runOnOperation() override;
@@ -263,7 +263,7 @@ struct ConvertLinalgGenericToAccelPass
     options.anchorOpName = this->anchorOpName;
     options.opcodeMap = this->opcodeMap;
     options.opcodeFlow = this->opcodeFlow;
-    options.permutationMap = this->permutationMap;
+    options.loopPermutation = this->loopPermutation;
   }
 };
 } // namespace
