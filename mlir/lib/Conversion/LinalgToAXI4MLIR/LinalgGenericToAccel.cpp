@@ -44,6 +44,9 @@ const StringLiteral kAccel_opcode_map_str = "accel_opcode_map_str";
 const StringLiteral kAccel_opcode_flow = "accel_opcode_flow";
 const StringLiteral kAccel_opcode_flow_str = "accel_opcode_flow_str";
 const StringLiteral kAccel_loop_permutation = "accel_loop_permutation";
+const StringLiteral kAccel_accel_tile_size = "accel_accel_tile_size";
+const StringLiteral kAccel_tile_sizes = "accel_tile_sizes";
+const StringLiteral kAccel_init_opcodes_str = "accel_init_opcodes_str";
 
 IntegerAttr getU32IntegerAttr(PatternRewriter &rewriter, unsigned value) {
   return rewriter.getIntegerAttr(rewriter.getIntegerType(32, false), value);
@@ -238,11 +241,12 @@ struct ConvertLinalgGenericToAccelPass
     this->cacheSizes = options.cacheSizes;
     this->tileSizes = options.tileSizes;
     this->elementSize = options.elementSize;
+    this->loopPermutation = options.loopPermutation;
     this->anchorFuncName = options.anchorFuncName;
     this->anchorOpName = options.anchorOpName;
     this->opcodeMap = options.opcodeMap;
+    this->initOpcodes = options.initOpcodes;
     this->opcodeFlow = options.opcodeFlow;
-    this->loopPermutation = options.loopPermutation;
   }
 
   void runOnOperation() override;
@@ -259,17 +263,19 @@ struct ConvertLinalgGenericToAccelPass
     options.cacheSizes = this->cacheSizes;
     options.tileSizes = this->tileSizes;
     options.elementSize = this->elementSize;
+    options.loopPermutation = this->loopPermutation;
     options.anchorFuncName = this->anchorFuncName;
     options.anchorOpName = this->anchorOpName;
     options.opcodeMap = this->opcodeMap;
+    options.initOpcodes = this->initOpcodes;
     options.opcodeFlow = this->opcodeFlow;
-    options.loopPermutation = this->loopPermutation;
   }
 };
 } // namespace
 
 void AccelTransformationOptions::dump() const {
-  llvm::errs() << "dmaAddress\t\t " << dmaAddress << "\n"
+  llvm::errs() << "tileSize: " << tileSize << "\n"
+               << "dmaAddress\t\t " << dmaAddress << "\n"
                << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
                << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"
                << "dmaOutputAddress\t " << dmaOutputAddress << "\n"
@@ -277,12 +283,15 @@ void AccelTransformationOptions::dump() const {
                << "flowCpuAcc\t\t " << flowCpuAcc << "\n"
                << "numberOfCaches\t\t " << numberOfCaches
                << "\n"
-               //  << "cacheSizes\t " << cacheSizes << "\n"
-               //  << "tileSizes\t " << tileSizes << "\n"
-               << "elementSize\t\t " << elementSize << "\n"
+               // << "cacheSizes\t\t " << cacheSizes << "\n"
+               // << "tileSizes\t\t " << tileSizes << "\n"
+               << "elementSize\t\t " << elementSize
+               << "\n"
+               // << "loopPermutation\t\t " << loopPermutation << "\n"
                << "anchorFuncName\t\t " << anchorFuncName << "\n"
                << "anchorOpName\t\t " << anchorOpName << "\n"
                << "opcodeMap\t\t " << opcodeMap << "\n"
+               << "initOpcodes\t\t " << initOpcodes << "\n"
                << "opcodeFlow\t\t " << opcodeFlow << "\n";
 }
 

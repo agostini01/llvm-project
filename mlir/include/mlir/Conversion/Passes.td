@@ -896,8 +896,12 @@ def AXI4MLIROpcodeOptions {
   list<Option> options = [
     Option<"opcodeMap", "opcode-map", "std::string", /*default=*/"",
       "A string representing the dictionary that maps opcodes to transfers.">,
+    Option<"initOpcodes", "init-opcodes", "std::string", /*default=*/"",
+      "A string representing a list of opcodes using the opcode-map."
+      "These opcodes will be sent once per matched operation.">,
     Option<"opcodeFlow", "opcode-flow", "std::string", /*default=*/"",
-      "A string representing the flow of opcodes using the opcode-map.">,
+      "A string representing the flow of opcodes using the opcode-map."
+      "These opcodes will be sent several times in the inner loops.">,
   ];
 }
 

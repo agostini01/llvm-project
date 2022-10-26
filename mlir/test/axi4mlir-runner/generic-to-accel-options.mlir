@@ -1,10 +1,13 @@
 // RUN: mlir-opt %s \
-// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,1,2 flow-cpu-accumulation=true opcode-map="{s0=[send(0)], s1=[send(1)], s2=[send(2), r2=[recv(2)]" opcode-flow="(sA (sB sC))"' \
+// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,1,2 flow-cpu-accumulation=true opcode-map="{s0=[send(0)], s1=[send(1)], s2=[send(2), r2=[recv(2)] reset=[send("32")]" opcode-flow="(sA (sB sC))" number-of-caches=2 tile-sizes=128,128,128,32,32,32 accel-tile-size=8' \
 // RUN: | FileCheck %s
 
 #matmul_trait = {
   __accel_transform__="ACCEL",
-  accel_permutation_map = [0,2,1],
+  accel_loop_permutation = [0,2,1],
+  accel_number_of_caches=2,
+  accel_tile_sizes = [128,128,128,32,32,32],
+  accel_accel_tile_size = 8,
   accel_acc_on_cpu = true,
   accel_opcode_map_str = "{s0=[send(0)], s1=[send(1)], s2=[send(2)], r2=[recv(2)], s0s1s2r2=[send(0), send(1), send(2), recv(2)]}",
   // accel_opcode_map = {
@@ -13,7 +16,9 @@
   //   map<s2 -> [send(1)]>,
   //   map<r2 -> [recv(2)]>,
   //   map<s0s1r2 -> [send(0), send(1), send(2), recv(2)]>,
+  //   map<reset -> [send("32")]>,
   // },
+  accel_init_opcodes_str = "reset",
   accel_opcode_flow_str = "(s0 (s1 s2 r2))",
 
 
