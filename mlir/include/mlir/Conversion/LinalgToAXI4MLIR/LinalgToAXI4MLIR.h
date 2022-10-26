@@ -9,6 +9,7 @@
 #define MLIR_CONVERSION_LINALGTOAXI4MLIR_LINALGTOAXI4MLIR_H_
 
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
 
 namespace mlir {
 class MLIRContext;
@@ -18,36 +19,17 @@ class ModuleOp;
 template <typename T>
 class OperationPass;
 
-struct LinalgToAXI4MLIROptions {
-  /// Accelerator Tile Size information
-  unsigned tileSize = 1;
-
-  /// DMA Information
-  unsigned dmaAddress = 0;
-  unsigned dmaInputAddress = 0;
-  unsigned dmaInputBufferSize = 100000;
-  unsigned dmaOutputAddress = 100000;
-  unsigned dmaOutputBufferSize = 100000;
-
-  /// Flow information
-  bool flowCpuAcc = false;
-  unsigned numberOfCaches = false;
-  ArrayRef<unsigned> cacheSizes;
-  ArrayRef<unsigned> tileSizes;
-  unsigned elementSize = false;
-};
-
 /// Collect a set of patterns to convert from the Linagl dialect to AXI4MLIR
 /// calls
 void populateLinalgToAXI4MLIRConversionPatterns(
     RewritePatternSet &patterns,
-    const LinalgToAXI4MLIROptions &options = LinalgToAXI4MLIROptions());
+    const AccelTransformationOptions &options = AccelTransformationOptions());
 
 // /// Create a pass to convert a linalg.matmul to axi4mlir calls
 std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgToAXI4MLIRPass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgToAXI4MLIRPass(
-    const LinalgToAXI4MLIROptions &options);
+    const AccelTransformationOptions &options);
 
 } // namespace mlir
 

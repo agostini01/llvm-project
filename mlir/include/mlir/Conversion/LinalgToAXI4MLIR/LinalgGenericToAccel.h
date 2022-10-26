@@ -10,6 +10,7 @@
 #define MLIR_CONVERSION_LINALGTOAXI4MLIR_LINALGGENERICTOACCEL_H_
 
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
 
 namespace mlir {
 class MLIRContext;
@@ -19,49 +20,17 @@ class ModuleOp;
 template <typename T>
 class OperationPass;
 
-struct LinalgGenericToAccelOptions {
-  /// Accelerator Tile Size information
-  unsigned tileSize = 1;
-
-  /// DMA Information
-  unsigned dmaAddress = 0;
-  unsigned dmaInputAddress = 0;
-  unsigned dmaInputBufferSize = 100000;
-  unsigned dmaOutputAddress = 100000;
-  unsigned dmaOutputBufferSize = 100000;
-
-  /// Flow information
-  bool flowCpuAcc = false;
-  unsigned numberOfCaches = false;
-  ArrayRef<unsigned> cacheSizes;
-  ArrayRef<unsigned> tileSizes;
-  unsigned elementSize = false;
-  ArrayRef<unsigned> permutationMap;
-
-  /// Anchor
-  std::string anchorFuncName;
-  std::string anchorOpName;
-  
-  /// Opcode information
-  std::string opcodeMap;
-  std::string opcodeFlow;
-
-public:
-  /// Utility to print members of the struct
-  void dump() const;
-};
-
 /// Populate the list with patterns that convert from LinalgOps to AccelOps
 void populateLinalgGenericToAccelConversionPatternsWithOptions(
     RewritePatternSet &patterns,
-    const LinalgGenericToAccelOptions &options = LinalgGenericToAccelOptions());
+    const AccelTransformationOptions &options = AccelTransformationOptions());
 
 /// Create the pass to convert from LinalgOps to AccelOps
 std::unique_ptr<OperationPass<ModuleOp>>
 createConvertLinalgGenericToAccelPass();
 
 std::unique_ptr<OperationPass<ModuleOp>> createConvertLinalgGenericToAccelPass(
-    const LinalgGenericToAccelOptions &options);
+    const AccelTransformationOptions &options);
 
 } // namespace mlir
 

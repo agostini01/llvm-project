@@ -13,6 +13,7 @@
 // #include <type_traits>
 
 #include "mlir/Conversion/LinalgToAXI4MLIR/LinalgToAXI4MLIR.h"
+#include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
 
 #include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
 
@@ -26,7 +27,6 @@
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassRegistry.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -55,14 +55,14 @@ static constexpr const char *kDmaWaitRecv = "dma_wait_recv";
 // lowering. static const char kPassLabel[] = "__vector_to_scf_lowering__";
 
 // /// Patterns that inherit from this struct have access to
-// /// LinalgToAXI4MLIROptions.
+// /// AccelTransformationOptions.
 // template <typename OpTy>
 // struct LinalgToAXI4MLIRPattern : public OpRewritePattern<OpTy> {
 //   explicit LinalgToAXI4MLIRPattern(MLIRContext *context,
-//                               LinalgToAXI4MLIROptions opt)
+//                               AccelTransformationOptions opt)
 //       : OpRewritePattern<OpTy>(context), options(opt) {}
 
-//   LinalgToAXI4MLIROptions options;
+//   AccelTransformationOptions options;
 // };
 
 // Marker used as attribute name in generated Linalg rewriting transformations.
@@ -107,116 +107,8 @@ static void addAXI4MLIRRuntimeApiDeclarations(ModuleOp module) {
   addFuncDecl(kDmaWaitRecv, FunctionType::get(ctx, {}, {}));
 }
 
-void addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
-                           const StringRef &srcAttrName,
-                           const StringRef &dstAttrName, const unsigned &tsd0,
-                           const unsigned &tsd1, const unsigned &tsd2) {
-  patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
-      LinalgTilingOptions().setTileSizes({tsd0, tsd1, tsd2}),
-      LinalgTransformationFilter(StringAttr::get(ctx, srcAttrName),
-                                 StringAttr::get(ctx, dstAttrName)));
-}
-
-/// Apply tiling patterns to matmul operations with the correct attribute
-static void applyPatterns(FuncOp funcOp,
-                          const LinalgToAXI4MLIROptions &options) {
-  MLIRContext *ctx = funcOp.getContext();
-  RewritePatternSet patterns(ctx);
-
-  // z7020 ARM A9 core specs
-  // L1:  32KB 4-way set-associative (instruction and data caches independent
-  // for each CPU)
-  // L2: 512KB 8-way set-associative (shared between CPUs)
-
-  // Pynq-z2
-  // z7020 chip
-  // 512MB DDR3 with 16-bit bus @ 1050Mbps
-
-  // Pynq-z2
-  // z7020 chip
-  // 512 Mbyte DDR3
-
-  //      M       N       K   ELEMSize   Total bytes    Total KB
-  //  1,024   1,024   1,024      4        12,582,912   12,288.00
-  //    512     512     512      4         3,145,728    3,072.00
-  //    256     256     256      4           786,432      768.00
-  //    128     128     128      4           196,608      192.00
-  //     64      64      64      4            49,152       48.00
-  //     32      32      32      4            12,288       12.00
-  //     16      16      16      4             3,072        3.00
-  //      8       8       8      4               768        0.75
-  //      4       4       4      4               192        0.19
-  //      2       2       2      4                48        0.05
-
-  if (options.tileSizes.size() > 0) {
-
-    unsigned tileIdx = 0;
-
-    if (options.numberOfCaches == 3) {
-      addTilingPatternToSet(
-          patterns, ctx, "MEM", "L3", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-
-      addTilingPatternToSet(
-          patterns, ctx, "L3", "L2", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-
-      addTilingPatternToSet(
-          patterns, ctx, "L2", "L1", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-    }
-
-    if (options.numberOfCaches == 2) {
-      addTilingPatternToSet(
-          patterns, ctx, "MEM", "L2", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-
-      addTilingPatternToSet(
-          patterns, ctx, "L2", "L1", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-    }
-
-    if (options.numberOfCaches == 1) {
-      addTilingPatternToSet(
-          patterns, ctx, "MEM", "L1", options.tileSizes[tileIdx + 0],
-          options.tileSizes[tileIdx + 1], options.tileSizes[tileIdx + 2]);
-      tileIdx += 3;
-    }
-
-  } else {
-    // If no tile sizes were selected
-    addTilingPatternToSet(patterns, ctx, "MEM", "L1", 4096, 4096, 4096);
-  }
-
-  // At this point relevant operations will have the L1 marker
-  // Only accelerator tiling is missing
-  if (options.tileSize > 1) {
-    patterns.add<LinalgTilingPattern>(
-        MatmulOp::getOperationName(), ctx,
-        LinalgTilingOptions().setTileSizes(
-            {options.tileSize, options.tileSize, options.tileSize}),
-        LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
-
-  } else {
-    patterns.add<LinalgTilingPattern>(
-        MatmulOp::getOperationName(), ctx,
-        LinalgTilingOptions().setTileSizes({4, 4, 4}),
-        LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
-  }
-
-  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-}
-
 static void addDMAInitCalls(FuncOp funcOp,
-                            const LinalgToAXI4MLIROptions &options) {
+                            const AccelTransformationOptions &options) {
   auto b = ImplicitLocOpBuilder::atBlockBegin(funcOp.getLoc(),
                                               &(funcOp.body().front()));
 
@@ -266,7 +158,7 @@ static void emitCall(ImplicitLocOpBuilder &builder, Operation *ref,
 }
 
 static void generateRuntime(linalg::MatmulOp op,
-                         const LinalgToAXI4MLIROptions &options) {
+                         const AccelTransformationOptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getI32Type();
   Type intTy = b.getI32Type();
@@ -379,8 +271,8 @@ struct ConvertLinalgToAXI4MLIRPass
 
   /// Constructor to build this pass using user defined options
   ///
-  /// Must manually set the LinalgToAXI4MLIROptions options
-  ConvertLinalgToAXI4MLIRPass(const LinalgToAXI4MLIROptions &options) {
+  /// Must manually set the AccelTransformationOptions options
+  ConvertLinalgToAXI4MLIRPass(const AccelTransformationOptions &options) {
     this->tileSize = options.tileSize;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
@@ -400,7 +292,7 @@ struct ConvertLinalgToAXI4MLIRPass
   }
 
   void runOnOperation() override {
-    LinalgToAXI4MLIROptions options;
+    AccelTransformationOptions options;
     options.tileSize = tileSize;
     options.dmaAddress = dmaAddress;
     options.dmaInputAddress = dmaInputAddress;
@@ -457,6 +349,6 @@ mlir::createConvertLinalgToAXI4MLIRPass() {
 
 std::unique_ptr<OperationPass<ModuleOp>>
 mlir::createConvertLinalgToAXI4MLIRPass(
-    const LinalgToAXI4MLIROptions &options) {
+    const AccelTransformationOptions &options) {
   return std::make_unique<ConvertLinalgToAXI4MLIRPass>(options);
 }

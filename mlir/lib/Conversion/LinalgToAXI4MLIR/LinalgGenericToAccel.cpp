@@ -58,7 +58,7 @@ public:
   GenericAttrAnnotation(
       MLIRContext *context,
       // LinalgTransformationFilter f = LinalgTransformationFilter(),
-      LinalgGenericToAccelOptions options = LinalgGenericToAccelOptions(),
+      AccelTransformationOptions options = AccelTransformationOptions(),
       PatternBenefit benefit = 1)
       : OpRewritePattern<linalg::GenericOp>(context, benefit),
         options(std::move(options)) {}
@@ -111,7 +111,7 @@ public:
   }
 
 private:
-  LinalgGenericToAccelOptions options;
+  AccelTransformationOptions options;
 };
 
 /// Function to materialize DMA attributes as constants
@@ -213,7 +213,7 @@ public:
 };
 
 void mlir::populateLinalgGenericToAccelConversionPatternsWithOptions(
-    RewritePatternSet &patterns, const LinalgGenericToAccelOptions &options) {
+    RewritePatternSet &patterns, const AccelTransformationOptions &options) {
   patterns.add<GenericAttrAnnotation>(patterns.getContext(), options, 2);
   patterns.add<LinalgGenericToAccel>(patterns.getContext());
 }
@@ -226,7 +226,7 @@ struct ConvertLinalgGenericToAccelPass
   /// Constructor to build this pass using user defined options
   /// Not used when the pass is created from commandline, helpful for creating
   /// this pass in code
-  ConvertLinalgGenericToAccelPass(const LinalgGenericToAccelOptions &options) {
+  ConvertLinalgGenericToAccelPass(const AccelTransformationOptions &options) {
     this->tileSize = options.tileSize;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
@@ -247,7 +247,7 @@ struct ConvertLinalgGenericToAccelPass
 
   void runOnOperation() override;
 
-  void setOptions(LinalgGenericToAccelOptions &options) {
+  void setOptions(AccelTransformationOptions &options) {
     options.tileSize = this->tileSize;
     options.dmaAddress = this->dmaAddress;
     options.dmaInputAddress = this->dmaInputAddress;
@@ -268,7 +268,7 @@ struct ConvertLinalgGenericToAccelPass
 };
 } // namespace
 
-void LinalgGenericToAccelOptions::dump() const {
+void AccelTransformationOptions::dump() const {
   llvm::errs() << "dmaAddress\t\t " << dmaAddress << "\n"
                << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
                << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"
@@ -293,7 +293,7 @@ void LinalgGenericToAccelOptions::dump() const {
 ///   4. Convert the marked ops to the accel dialect
 void ConvertLinalgGenericToAccelPass::runOnOperation() {
 
-  LinalgGenericToAccelOptions options;
+  AccelTransformationOptions options;
   setOptions(options);
 
   auto module = getOperation();
@@ -357,6 +357,6 @@ mlir::createConvertLinalgGenericToAccelPass() {
 
 // std::unique_ptr<OperationPass<ModuleOp>>
 // mlir::createConvertLinalgGenericToAccelPass(
-//     const LinalgGenericToAccelOptions &options) {
+//     const AccelTransformationOptions &options) {
 //   return std::make_unique<ConvertLinalgGenericToAccelPass>(options);
 // }
