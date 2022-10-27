@@ -316,10 +316,10 @@ struct ConvertMatmulToAXI4MLIRPass
 
     addAXI4MLIRRuntimeApiDeclarations(module);
 
-    // Mark any unmarked linalg.matmul for tile generation
+    // Mark any unmarked linalg.matmul for transformation
     module.walk([&](linalg::MatmulOp op) {
       if (!op->getAttr(kLinalgTransformMarker))
-        op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "MEM"));
+        op->setAttr(kLinalgTransformMarker, StringAttr::get(ctx, "GENERALIZE"));
     });
 
     // Tile matmul operations with MEM attribute

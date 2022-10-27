@@ -16,7 +16,8 @@ using namespace mlir::linalg;
 
 const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
 
-struct LinalgOpChangeFilterPattern : public OpInterfaceRewritePattern<LinalgOp> {
+struct LinalgOpChangeFilterPattern
+    : public OpInterfaceRewritePattern<LinalgOp> {
   LinalgOpChangeFilterPattern(
       MLIRContext *context,
       LinalgTransformationFilter f = LinalgTransformationFilter(),
@@ -44,11 +45,16 @@ private:
   LinalgTransformationFilter filter;
 };
 
-/// Apply tiling patterns to matmul operations with the correct attribute
+/// Apply tiling patterns to GenericOps with the correct attribute
 void mlir::applyPatterns(FuncOp funcOp,
                          const AccelTransformationOptions &options) {
   MLIRContext *ctx = funcOp.getContext();
   RewritePatternSet patterns(ctx);
+
+  // Triggers on operations with kLinagTransformMarker set to "GENERALIZE"
+  patterns.add<LinalgGeneralizationPattern>(
+      ctx, LinalgTransformationFilter(StringAttr::get(ctx, "GENERALIZE"),
+                                      StringAttr::get(ctx, "INTERCHANGE")));
 
   // Perform loop interchange with GenericOpInterchangePattern
   // This only correctly interchanges loops for GenericOps, thus
@@ -61,7 +67,7 @@ void mlir::applyPatterns(FuncOp funcOp,
   } else {
     // add pattern to change attribute
     patterns.add<LinalgOpChangeFilterPattern>(
-        MatmulOp::getOperationName(), ctx,
+        GenericOp::getOperationName(), ctx,
         LinalgTransformationFilter(StringAttr::get(ctx, "INTERCHANGE"),
                                    StringAttr::get(ctx, "MEM")));
   }
@@ -92,7 +98,6 @@ void mlir::applyPatterns(FuncOp funcOp,
   //      2       2       2      4                48        0.05
 
   if (options.tileSizes.size() > 0) {
-
     unsigned tileIdx = 0;
 
     if (options.numberOfCaches == 3) {
@@ -140,7 +145,7 @@ void mlir::applyPatterns(FuncOp funcOp,
   // Only accelerator tiling is missing
   if (options.tileSize > 1) {
     patterns.add<LinalgTilingPattern>(
-        MatmulOp::getOperationName(), ctx,
+        GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes(
             {options.tileSize, options.tileSize, options.tileSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
@@ -148,7 +153,7 @@ void mlir::applyPatterns(FuncOp funcOp,
 
   } else {
     patterns.add<LinalgTilingPattern>(
-        MatmulOp::getOperationName(), ctx,
+        GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes({4, 4, 4}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
                                    StringAttr::get(ctx, "ACCEL")));
@@ -163,7 +168,7 @@ void mlir::addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
                                  const unsigned &tsd0, const unsigned &tsd1,
                                  const unsigned &tsd2) {
   patterns.add<LinalgTilingPattern>(
-      MatmulOp::getOperationName(), ctx,
+      GenericOp::getOperationName(), ctx,
       LinalgTilingOptions().setTileSizes({tsd0, tsd1, tsd2}),
       LinalgTransformationFilter(StringAttr::get(ctx, srcAttrName),
                                  StringAttr::get(ctx, dstAttrName)));
