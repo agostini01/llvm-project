@@ -26,7 +26,7 @@
 #include "mlir/Conversion/GPUToVulkan/ConvertGPUToVulkanPass.h"
 #include "mlir/Conversion/LinalgToAXI4MLIR/AccelToAXI4MLIR.h"
 #include "mlir/Conversion/LinalgToAXI4MLIR/LinalgGenericToAccel.h"
-#include "mlir/Conversion/LinalgToAXI4MLIR/LinalgToAXI4MLIR.h"
+#include "mlir/Conversion/LinalgToAXI4MLIR/MatmulToAXI4MLIR.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToSPIRV/LinalgToSPIRVPass.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"

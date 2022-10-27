@@ -1,5 +1,5 @@
 add_mlir_conversion_library(MLIRLinalgToAXI4MLIR
-  LinalgToAXI4MLIR.cpp
+  MatmulToAXI4MLIR.cpp
   AccelToAXI4MLIR.cpp
   LinalgGenericToAccel.cpp
   AXI4MLIRUtils.cpp

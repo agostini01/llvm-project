@@ -834,7 +834,7 @@ def ConvertArmNeon2dToIntr : Pass<"arm-neon-2d-to-intr", "FuncOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// LinalgToAXI4MLIR
+// MatmulToAXI4MLIR
 //===----------------------------------------------------------------------===//
 
 def AXI4MLIRDMAOptions {
@@ -905,9 +905,9 @@ def AXI4MLIROpcodeOptions {
   ];
 }
 
-def ConvertLinalgToAXI4MLIR : Pass<"test-linalg-to-axi4mlir", "ModuleOp"> {
+def ConvertMatmulToAXI4MLIR : Pass<"test-matmul-to-axi4mlir", "ModuleOp"> {
   let summary = "Convert Linalg Matmul into driver to accelerator";
-  let constructor = "mlir::createConvertLinalgToAXI4MLIRPass()";
+  let constructor = "mlir::createConvertMatmulToAXI4MLIRPass()";
   let dependentDialects = [
     "AffineDialect",
     "memref::MemRefDialect",

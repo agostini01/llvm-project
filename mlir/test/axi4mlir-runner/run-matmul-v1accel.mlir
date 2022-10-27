@@ -1,4 +1,4 @@
-// RUN: mlir-opt -test-linalg-to-axi4mlir="flow-cpu-accumulation" \
+// RUN: mlir-opt -test-matmul-to-axi4mlir="flow-cpu-accumulation" \
 // RUN:  -convert-linalg-to-loops -lower-affine -convert-scf-to-cf \
 // RUN:  -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm \
 // RUN:  -reconcile-unrealized-casts %s | \
@@ -12,7 +12,7 @@
 func private @print_memref_f32(memref<*xf32>)
 
 
-// This is the only code that gets modified by the -test-linalg-to-axi4mlir pass
+// This is the only code that gets modified by the -test-matmul-to-axi4mlir pass
 func @matmul_call(%A: memref<16x8xf32>, %B: memref<8x32xf32>, %C: memref<16x32xf32>) {
   linalg.matmul {__internal_linalg_transform__="L1"}
    ins(%A, %B: memref<16x8xf32>, memref<8x32xf32>)

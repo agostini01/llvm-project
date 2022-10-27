@@ -51,6 +51,8 @@ void mlir::applyPatterns(FuncOp funcOp,
   RewritePatternSet patterns(ctx);
 
   // Perform loop interchange with GenericOpInterchangePattern
+  // This only correctly interchanges loops for GenericOps, thus
+  // generalization must be done prior to this step.
   if (options.loopPermutation.size() > 0) {
     patterns.add<GenericOpInterchangePattern>(
         ctx, options.loopPermutation,

@@ -1,4 +1,4 @@
-//===- LinalgToAXI4MLIR.cpp - Convert Linalg to AXI4MLIR calls --*- C++ -*-===//
+//===- MatmulToAXI4MLIR.cpp - Convert Matmul to AXI4MLIR calls --*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,13 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements lowering of Linalg to AXI4MLIR calls
+// This file implements lowering of Matmul to AXI4MLIR calls
 //
 //===----------------------------------------------------------------------===//
 
 // #include <type_traits>
 
-#include "mlir/Conversion/LinalgToAXI4MLIR/LinalgToAXI4MLIR.h"
+#include "mlir/Conversion/LinalgToAXI4MLIR/MatmulToAXI4MLIR.h"
 #include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
 
 #include "mlir/Dialect/LLVMIR/FunctionCallUtils.h"
@@ -48,22 +48,6 @@ static constexpr const char *kDmaStartSend = "dma_start_send";
 static constexpr const char *kDmaWaitSend = "dma_wait_send";
 static constexpr const char *kDmaStartRecv = "dma_start_recv";
 static constexpr const char *kDmaWaitRecv = "dma_wait_recv";
-
-// namespace {
-
-// /// Attribute name used for labeling transfer ops during progressive
-// lowering. static const char kPassLabel[] = "__vector_to_scf_lowering__";
-
-// /// Patterns that inherit from this struct have access to
-// /// AccelTransformationOptions.
-// template <typename OpTy>
-// struct LinalgToAXI4MLIRPattern : public OpRewritePattern<OpTy> {
-//   explicit LinalgToAXI4MLIRPattern(MLIRContext *context,
-//                               AccelTransformationOptions opt)
-//       : OpRewritePattern<OpTy>(context), options(opt) {}
-
-//   AccelTransformationOptions options;
-// };
 
 // Marker used as attribute name in generated Linalg rewriting transformations.
 const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
@@ -265,14 +249,14 @@ static void generateRuntime(linalg::MatmulOp op,
 
 namespace {
 
-struct ConvertLinalgToAXI4MLIRPass
-    : public ConvertLinalgToAXI4MLIRBase<ConvertLinalgToAXI4MLIRPass> {
-  ConvertLinalgToAXI4MLIRPass() = default;
+struct ConvertMatmulToAXI4MLIRPass
+    : public ConvertMatmulToAXI4MLIRBase<ConvertMatmulToAXI4MLIRPass> {
+  ConvertMatmulToAXI4MLIRPass() = default;
 
   /// Constructor to build this pass using user defined options
   ///
   /// Must manually set the AccelTransformationOptions options
-  ConvertLinalgToAXI4MLIRPass(const AccelTransformationOptions &options) {
+  ConvertMatmulToAXI4MLIRPass(const AccelTransformationOptions &options) {
     this->tileSize = options.tileSize;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
@@ -284,6 +268,12 @@ struct ConvertLinalgToAXI4MLIRPass
     this->cacheSizes = options.cacheSizes;
     this->tileSizes = options.tileSizes;
     this->elementSize = options.elementSize;
+    this->loopPermutation = options.loopPermutation;
+    // this->anchorFuncName = options.anchorFuncName;
+    // this->anchorOpName = options.anchorOpName;
+    // this->opcodeMap = options.opcodeMap;
+    // this->initOpcodes = options.initOpcodes;
+    // this->opcodeFlow = options.opcodeFlow;
   }
 
   bool areBothSizeOptionsSet() {
@@ -291,19 +281,29 @@ struct ConvertLinalgToAXI4MLIRPass
                                                                    : false;
   }
 
+  void setOptions(AccelTransformationOptions &options) {
+    options.tileSize = this->tileSize;
+    options.dmaAddress = this->dmaAddress;
+    options.dmaInputAddress = this->dmaInputAddress;
+    options.dmaInputBufferSize = this->dmaInputBufferSize;
+    options.dmaOutputAddress = this->dmaOutputAddress;
+    options.dmaOutputBufferSize = this->dmaOutputBufferSize;
+    options.flowCpuAcc = this->flowCpuAcc;
+    options.numberOfCaches = this->numberOfCaches;
+    options.cacheSizes = this->cacheSizes;
+    options.tileSizes = this->tileSizes;
+    options.elementSize = this->elementSize;
+    options.loopPermutation = this->loopPermutation;
+    // options.anchorFuncName = this->anchorFuncName;
+    // options.anchorOpName = this->anchorOpName;
+    // options.opcodeMap = this->opcodeMap;
+    // options.initOpcodes = this->initOpcodes;
+    // options.opcodeFlow = this->opcodeFlow;
+  }
+
   void runOnOperation() override {
     AccelTransformationOptions options;
-    options.tileSize = tileSize;
-    options.dmaAddress = dmaAddress;
-    options.dmaInputAddress = dmaInputAddress;
-    options.dmaInputBufferSize = dmaInputBufferSize;
-    options.dmaOutputAddress = dmaOutputAddress;
-    options.dmaOutputBufferSize = dmaOutputBufferSize;
-    options.flowCpuAcc = flowCpuAcc;
-    options.numberOfCaches = numberOfCaches;
-    options.cacheSizes = cacheSizes;
-    options.tileSizes = tileSizes;
-    options.elementSize = elementSize;
+    setOptions(options);
 
     assert(options.numberOfCaches < 4 &&
            "There is no support for number-of-caches > 3");
@@ -343,12 +343,12 @@ struct ConvertLinalgToAXI4MLIRPass
 } // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertLinalgToAXI4MLIRPass() {
-  return std::make_unique<ConvertLinalgToAXI4MLIRPass>();
+mlir::createConvertMatmulToAXI4MLIRPass() {
+  return std::make_unique<ConvertMatmulToAXI4MLIRPass>();
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertLinalgToAXI4MLIRPass(
+mlir::createConvertMatmulToAXI4MLIRPass(
     const AccelTransformationOptions &options) {
-  return std::make_unique<ConvertLinalgToAXI4MLIRPass>(options);
+  return std::make_unique<ConvertMatmulToAXI4MLIRPass>(options);
 }
