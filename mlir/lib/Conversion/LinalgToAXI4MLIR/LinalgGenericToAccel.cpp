@@ -135,7 +135,8 @@ static void materializeDMAConstants(PatternRewriter &rewriter, Operation *op,
 }
 
 /// Rewrites GenericOp as a series of of accel.<operations>
-/// Expects the correct attributes to be already set
+/// Expects the correct attributes to be already set as it
+/// does not use options flags and instead, reads the op attributes.
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
@@ -272,28 +273,6 @@ struct ConvertLinalgGenericToAccelPass
   }
 };
 } // namespace
-
-void AccelTransformationOptions::dump() const {
-  llvm::errs() << "tileSize: " << tileSize << "\n"
-               << "dmaAddress\t\t " << dmaAddress << "\n"
-               << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
-               << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"
-               << "dmaOutputAddress\t " << dmaOutputAddress << "\n"
-               << "dmaOutputBufferSize\t " << dmaOutputBufferSize << "\n"
-               << "flowCpuAcc\t\t " << flowCpuAcc << "\n"
-               << "numberOfCaches\t\t " << numberOfCaches
-               << "\n"
-               // << "cacheSizes\t\t " << cacheSizes << "\n"
-               // << "tileSizes\t\t " << tileSizes << "\n"
-               << "elementSize\t\t " << elementSize
-               << "\n"
-               // << "loopPermutation\t\t " << loopPermutation << "\n"
-               << "anchorFuncName\t\t " << anchorFuncName << "\n"
-               << "anchorOpName\t\t " << anchorOpName << "\n"
-               << "opcodeMap\t\t " << opcodeMap << "\n"
-               << "initOpcodes\t\t " << initOpcodes << "\n"
-               << "opcodeFlow\t\t " << opcodeFlow << "\n";
-}
 
 /// The conversion takes the following steps:
 ///   1. Marks anchor ops with the "generalize" attribute

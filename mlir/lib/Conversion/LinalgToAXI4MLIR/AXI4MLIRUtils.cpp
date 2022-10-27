@@ -8,8 +8,8 @@
 
 #include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
 
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -156,12 +156,35 @@ void mlir::applyPatterns(FuncOp funcOp,
 }
 
 void mlir::addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
-                           const StringRef &srcAttrName,
-                           const StringRef &dstAttrName, const unsigned &tsd0,
-                           const unsigned &tsd1, const unsigned &tsd2) {
+                                 const StringRef &srcAttrName,
+                                 const StringRef &dstAttrName,
+                                 const unsigned &tsd0, const unsigned &tsd1,
+                                 const unsigned &tsd2) {
   patterns.add<LinalgTilingPattern>(
       MatmulOp::getOperationName(), ctx,
       LinalgTilingOptions().setTileSizes({tsd0, tsd1, tsd2}),
       LinalgTransformationFilter(StringAttr::get(ctx, srcAttrName),
                                  StringAttr::get(ctx, dstAttrName)));
+}
+
+void AccelTransformationOptions::dump() const {
+  llvm::errs() << "tileSize: " << tileSize << "\n"
+               << "dmaAddress\t\t " << dmaAddress << "\n"
+               << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
+               << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"
+               << "dmaOutputAddress\t " << dmaOutputAddress << "\n"
+               << "dmaOutputBufferSize\t " << dmaOutputBufferSize << "\n"
+               << "flowCpuAcc\t\t " << flowCpuAcc << "\n"
+               << "numberOfCaches\t\t " << numberOfCaches
+               << "\n"
+               // << "cacheSizes\t\t " << cacheSizes << "\n"
+               // << "tileSizes\t\t " << tileSizes << "\n"
+               << "elementSize\t\t " << elementSize
+               << "\n"
+               // << "loopPermutation\t\t " << loopPermutation << "\n"
+               << "anchorFuncName\t\t " << anchorFuncName << "\n"
+               << "anchorOpName\t\t " << anchorOpName << "\n"
+               << "opcodeMap\t\t " << opcodeMap << "\n"
+               << "initOpcodes\t\t " << initOpcodes << "\n"
+               << "opcodeFlow\t\t " << opcodeFlow << "\n";
 }
