@@ -141,7 +141,10 @@ static void emitCall(ImplicitLocOpBuilder &builder, Operation *ref,
   builder.create<LLVM::CallOp>(TypeRange(), SymbolRefAttr::get(ref), params);
 }
 
-static void generateRuntime(linalg::MatmulOp op,
+
+/// This should only be used on MatmulOps that have been generalized.
+/// It has Matmul attributes in mind such as support for only 3 loops.
+static void generateRuntime(linalg::GenericOp op,
                          const AccelTransformationOptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getI32Type();
@@ -326,12 +329,12 @@ struct ConvertMatmulToAXI4MLIRPass
     module.walk([&](FuncOp funcOp) { applyPatterns(funcOp, options); });
 
     // Replace inner-matmul with ACCEL attribute by accelerator driver logic
-    module.walk([&](linalg::MatmulOp op) {
+    module.walk([&](linalg::GenericOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
         addDMAInitCalls(op->getParentOfType<FuncOp>(), options);
     });
 
-    module.walk([&](linalg::MatmulOp op) {
+    module.walk([&](linalg::GenericOp op) {
       if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
         generateRuntime(op, options);
     });
