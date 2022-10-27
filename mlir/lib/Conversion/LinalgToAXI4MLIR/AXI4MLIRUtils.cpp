@@ -14,11 +14,55 @@
 using namespace mlir;
 using namespace mlir::linalg;
 
+const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
+
+struct LinalgOpChangeFilterPattern : public OpInterfaceRewritePattern<LinalgOp> {
+  LinalgOpChangeFilterPattern(
+      MLIRContext *context,
+      LinalgTransformationFilter f = LinalgTransformationFilter(),
+      PatternBenefit benefit = 1)
+      : OpInterfaceRewritePattern<LinalgOp>(context, benefit),
+        filter(std::move(f)) {}
+
+  LinalgOpChangeFilterPattern(
+      StringRef opName, MLIRContext *context,
+      LinalgTransformationFilter f = LinalgTransformationFilter(),
+      PatternBenefit benefit = 1)
+      : OpInterfaceRewritePattern<LinalgOp>(context, benefit),
+        filter(f.addOpNameFilter(opName)) {}
+
+  LogicalResult matchAndRewrite(LinalgOp op,
+                                PatternRewriter &rewriter) const override {
+    if (failed(filter.checkAndNotify(rewriter, op)))
+      return failure();
+    filter.replaceLinalgTransformationFilter(rewriter, op);
+    return success();
+  }
+
+private:
+  /// LinalgTransformMarker handles special attribute manipulations.
+  LinalgTransformationFilter filter;
+};
+
 /// Apply tiling patterns to matmul operations with the correct attribute
 void mlir::applyPatterns(FuncOp funcOp,
-                          const AccelTransformationOptions &options) {
+                         const AccelTransformationOptions &options) {
   MLIRContext *ctx = funcOp.getContext();
   RewritePatternSet patterns(ctx);
+
+  // Perform loop interchange with GenericOpInterchangePattern
+  if (options.loopPermutation.size() > 0) {
+    patterns.add<GenericOpInterchangePattern>(
+        ctx, options.loopPermutation,
+        LinalgTransformationFilter(StringAttr::get(ctx, "INTERCHANGE"),
+                                   StringAttr::get(ctx, "MEM")));
+  } else {
+    // add pattern to change attribute
+    patterns.add<LinalgOpChangeFilterPattern>(
+        MatmulOp::getOperationName(), ctx,
+        LinalgTransformationFilter(StringAttr::get(ctx, "INTERCHANGE"),
+                                   StringAttr::get(ctx, "MEM")));
+  }
 
   // z7020 ARM A9 core specs
   // L1:  32KB 4-way set-associative (instruction and data caches independent

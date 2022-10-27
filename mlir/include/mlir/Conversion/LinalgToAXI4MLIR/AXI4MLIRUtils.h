@@ -14,6 +14,7 @@ namespace mlir {
 class MLIRContext;
 class Pass;
 class RewritePatternSet;
+class PatternRewriter;
 class ModuleOp;
 
 struct AccelTransformationOptions {
