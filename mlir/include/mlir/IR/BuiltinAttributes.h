@@ -17,6 +17,7 @@
 
 namespace mlir {
 class AffineMap;
+class OpcodeMap;
 class BoolAttr;
 class DenseIntElementsAttr;
 class FlatSymbolRefAttr;

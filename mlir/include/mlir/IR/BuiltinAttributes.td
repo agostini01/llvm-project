@@ -67,6 +67,46 @@ def Builtin_AffineMapAttr : Builtin_Attr<"AffineMap", [
 }
 
 //===----------------------------------------------------------------------===//
+// OpcodeMapAttr
+//===----------------------------------------------------------------------===//
+
+def Builtin_OpcodeMapAttr : Builtin_Attr<"OpcodeMap", []> {
+  let summary = "An Attribute containing an OpcodeMap object";
+  let description = [{
+    Syntax:
+
+    ```
+    opcode-map-attribute ::= `accel_opcode_map` `<` opcode-map `>`
+    ```
+
+    Examples:
+
+    ```mlir
+    accel_opcode_map = {
+      map<s0 -> [send(0)]>,
+      map<s1 -> [send(1)]>,
+      map<s2 -> [send(1)]>,
+      map<r2 -> [recv(2)]>,
+      map<s0s1r2 -> [send(0), send(1), send(2), recv(2)]>,
+      map<reset -> [send("32")]>,
+    }
+    ```
+  }];
+  let parameters = (ins "OpcodeMap":$value);
+  let builders = [
+    AttrBuilderWithInferredContext<(ins "OpcodeMap":$value), [{
+      return $_get(value.getContext(), value);
+    }]>
+  ];
+  let extraClassDeclaration = [{
+    using ValueType = OpcodeMap;
+    OpcodeMap getOpcodeMap() const { return getValue(); }
+  }];
+  let skipDefaultBuilders = 1;
+  let typeBuilder = "IndexType::get($_value.getContext())";
+}
+
+//===----------------------------------------------------------------------===//
 // ArrayAttr
 //===----------------------------------------------------------------------===//
 

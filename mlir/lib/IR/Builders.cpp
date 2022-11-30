@@ -14,6 +14,8 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Matchers.h"
+#include "mlir/IR/OpcodeExpr.h"
+#include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/SymbolTable.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -261,6 +263,12 @@ ArrayAttr Builder::getAffineMapArrayAttr(ArrayRef<AffineMap> values) {
   return getArrayAttr(attrs);
 }
 
+ArrayAttr Builder::getOpcodeMapArrayAttr(ArrayRef<OpcodeMap> values) {
+  auto attrs = llvm::to_vector<8>(llvm::map_range(
+      values, [](OpcodeMap v) -> Attribute { return OpcodeMapAttr::get(v); }));
+  return getArrayAttr(attrs);
+}
+
 Attribute Builder::getZeroAttr(Type type) {
   if (type.isa<FloatType>())
     return getFloatAttr(type, 0.0);
@@ -331,6 +339,63 @@ AffineMap Builder::getShiftedAffineMap(AffineMap map, int64_t shift) {
   for (auto resultExpr : map.getResults())
     shiftedResults.push_back(resultExpr + shift);
   return AffineMap::get(map.getNumDims(), map.getNumSymbols(), shiftedResults,
+                        context);
+}
+
+
+//===----------------------------------------------------------------------===//
+// Opcode Expressions, Opcde Maps, and Opcode Flows.
+//===----------------------------------------------------------------------===//
+
+OpcodeExpr Builder::getOpcodeDimExpr(unsigned position) {
+  return mlir::getOpcodeDimExpr(position, context);
+}
+
+OpcodeExpr Builder::getOpcodeSymbolExpr(unsigned position) {
+  return mlir::getOpcodeSymbolExpr(position, context);
+}
+
+OpcodeExpr Builder::getOpcodeConstantExpr(int64_t constant) {
+  return mlir::getOpcodeConstantExpr(constant, context);
+}
+
+OpcodeMap Builder::getEmptyOpcodeMap() { return OpcodeMap::get(context); }
+
+OpcodeMap Builder::getConstantOpcodeMap(int64_t val) {
+  return OpcodeMap::get(/*dimCount=*/0, /*symbolCount=*/0,
+                        getOpcodeConstantExpr(val));
+}
+
+OpcodeMap Builder::getADimIdentityMap() {
+  return OpcodeMap::get(/*dimCount=*/1, /*symbolCount=*/0, getOpcodeDimExpr(0));
+}
+
+OpcodeMap Builder::getAMultiDimIdentityMap(unsigned rank) {
+  SmallVector<OpcodeExpr, 4> dimExprs;
+  dimExprs.reserve(rank);
+  for (unsigned i = 0; i < rank; ++i)
+    dimExprs.push_back(getOpcodeDimExpr(i));
+  return OpcodeMap::get(/*dimCount=*/rank, /*symbolCount=*/0, dimExprs,
+                        context);
+}
+
+OpcodeMap Builder::getASymbolIdentityMap() {
+  return OpcodeMap::get(/*dimCount=*/0, /*symbolCount=*/1,
+                        getOpcodeSymbolExpr(0));
+}
+
+OpcodeMap Builder::getSingleDimShiftOpcodeMap(int64_t shift) {
+  // expr = d0 + shift.
+  auto expr = getOpcodeDimExpr(0) + shift;
+  return OpcodeMap::get(/*dimCount=*/1, /*symbolCount=*/0, expr);
+}
+
+OpcodeMap Builder::getShiftedOpcodeMap(OpcodeMap map, int64_t shift) {
+  SmallVector<OpcodeExpr, 4> shiftedResults;
+  shiftedResults.reserve(map.getNumResults());
+  for (auto resultExpr : map.getResults())
+    shiftedResults.push_back(resultExpr + shift);
+  return OpcodeMap::get(map.getNumDims(), map.getNumSymbols(), shiftedResults,
                         context);
 }
 

@@ -13,6 +13,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/DecodeAttributesInterfaces.h"
@@ -38,8 +39,8 @@ void BuiltinDialect::registerAttributes() {
   addAttributes<AffineMapAttr, ArrayAttr, DenseIntOrFPElementsAttr,
                 DenseStringElementsAttr, DictionaryAttr, FloatAttr,
                 SymbolRefAttr, IntegerAttr, IntegerSetAttr, OpaqueAttr,
-                OpaqueElementsAttr, SparseElementsAttr, StringAttr, TypeAttr,
-                UnitAttr>();
+                OpaqueElementsAttr, OpcodeMapAttr, SparseElementsAttr,
+                StringAttr, TypeAttr, UnitAttr>();
 }
 
 //===----------------------------------------------------------------------===//

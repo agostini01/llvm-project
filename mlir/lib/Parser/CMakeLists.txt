@@ -6,6 +6,7 @@ add_mlir_library(MLIRParser
   Lexer.cpp
   LocationParser.cpp
   Parser.cpp
+  OpcodeParser.cpp
   Token.cpp
   TypeParser.cpp
 

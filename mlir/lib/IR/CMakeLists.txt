@@ -18,6 +18,8 @@ add_mlir_library(MLIRIR
   IntegerSet.cpp
   Location.cpp
   MLIRContext.cpp
+  OpcodeExpr.cpp
+  OpcodeMap.cpp
   Operation.cpp
   OperationSupport.cpp
   PatternMatch.cpp

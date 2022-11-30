@@ -192,6 +192,9 @@ public:
 
   /// Returns the storage uniquer used for creating affine constructs.
   StorageUniquer &getAffineUniquer();
+  
+  /// Returns the storage uniquer used for creating opcode constructs.
+  StorageUniquer &getOpcodeUniquer();
 
   /// Returns the storage uniquer used for constructing type storage instances.
   /// This should not be used directly.

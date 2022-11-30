@@ -10,6 +10,7 @@
 #define MLIR_IR_BUILTINATTRIBUTEINTERFACES_H
 
 #include "mlir/IR/AffineMap.h"
+#include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Support/LogicalResult.h"

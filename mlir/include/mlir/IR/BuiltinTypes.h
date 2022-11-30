@@ -29,6 +29,8 @@ class AffineMap;
 class FloatType;
 class IndexType;
 class IntegerType;
+class OpcodeExpr;
+class OpcodeMap;
 class StringAttr;
 class TypeRange;
 
