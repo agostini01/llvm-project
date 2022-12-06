@@ -220,7 +220,7 @@ public:
   unsigned getPosition() const;
 };
 
-/// A symbolic identifier appearing in an affine expression.
+/// A symbolic identifier appearing in an opcode expression.
 class OpcodeSymbolExpr : public OpcodeExpr {
 public:
   using ImplType = detail::OpcodeDimExprStorage;
@@ -272,6 +272,8 @@ bool OpcodeExpr::isa() const {
     return getKind() <= OpcodeExprKind::LAST_OPCODE_BINARY_OP;
   if (std::is_same<U, OpcodeDimExpr>::value)
     return getKind() == OpcodeExprKind::DimId;
+  if (std::is_same<U, OpcodeSymbolExpr>::value)
+    return getKind() == OpcodeExprKind::SymbolId;
   if (std::is_same<U, OpcodeSymbolExpr>::value)
     return getKind() == OpcodeExprKind::SymbolId;
   if (std::is_same<U, OpcodeConstantExpr>::value)

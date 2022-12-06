@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Parser.h"
-#include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/IntegerSet.h"
+#include "mlir/IR/OpcodeMap.h"
 #include "llvm/Support/SourceMgr.h"
 
 using namespace mlir;
@@ -41,8 +41,7 @@ enum OpcodeHighPrecOp {
 };
 
 /// This is a specialized parser for opcode structures (opcode maps, opcode
-/// expressions, and integer sets), maintaining the state transient to their
-/// bodies.
+/// expressions), maintaining the state transient to their bodies.
 class OpcodeParser : public Parser {
 public:
   OpcodeParser(ParserState &state, bool allowParsingSSAIds = false,
@@ -50,9 +49,24 @@ public:
       : Parser(state), allowParsingSSAIds(allowParsingSSAIds),
         parseElement(parseElement), numDimOperands(0), numSymbolOperands(0) {}
 
+  /// opcode_dict  ::= `opcode_map` `<` opcode-entry (`,` opcode-entry)* `>`
+  ///
+  /// opcode_entry ::= (bare-id | string-literal) `=` opcode_list
+  ///
+  /// opcode_list  ::= `[` opcode_expr (`,` opcode_expr)* `]
+  ///
+  /// opcode_expr  ::= op_send(bare-id
+  /// .              | send_literal(integer-literal))
+  ///                | op_send_dim(bare-id)
+  ///                | op_send_idx(bare-id)
+  ///                | op_recv(bare-id)
+  ParseResult parseOpcodeMapInline(OpcodeMap &map);
+  ParseResult parseOpcodeDict(NamedAttrList &attributes);
+
   OpcodeMap parseOpcodeMapRange(unsigned numDims, unsigned numSymbols);
   ParseResult parseOpcodeMapOrIntegerSetInline(OpcodeMap &map, IntegerSet &set);
-  // IntegerSet parseIntegerSetConstraints(unsigned numDims, unsigned numSymbols); // TODO: implement
+  // IntegerSet parseIntegerSetConstraints(unsigned numDims, unsigned
+  // numSymbols); // TODO: implement
   ParseResult parseOpcodeMapOfSSAIds(OpcodeMap &map,
                                      OpAsmParser::Delimiter delimiter);
   ParseResult parseOpcodeExprOfSSAIds(OpcodeExpr &expr);
@@ -64,6 +78,8 @@ private:
   OpcodeLowPrecOp consumeIfLowPrecOp();
   OpcodeHighPrecOp consumeIfHighPrecOp();
 
+  ParseResult parseSymbol();
+
   // Identifier lists for polyhedral structures.
   ParseResult parseDimIdList(unsigned &numDims);
   ParseResult parseSymbolIdList(unsigned &numSymbols);
@@ -72,6 +88,8 @@ private:
   ParseResult parseIdentifierDefinition(OpcodeExpr idExpr);
 
   OpcodeExpr parseOpcodeExpr();
+  ParseResult parseSendExpr(Token::Kind expectedToken,
+                            function_ref<ParseResult()> parseElementFn);
   OpcodeExpr parseParentheticalExpr();
   OpcodeExpr parseNegateExpression(OpcodeExpr lhs);
   OpcodeExpr parseIntegerExpr();
@@ -95,6 +113,7 @@ private:
   unsigned numDimOperands;
   unsigned numSymbolOperands;
   SmallVector<std::pair<StringRef, OpcodeExpr>, 4> dimsAndSymbols;
+  SmallVector<std::pair<StringRef, OpcodeExpr>, 4> opcodeAndCommands;
 };
 } // namespace
 
@@ -506,6 +525,146 @@ OpcodeParser::parseDimAndOptionalSymbolIdList(unsigned &numDims,
   return parseSymbolIdList(numSymbols);
 }
 
+/// Parse symbol representing the opcode
+ParseResult OpcodeParser::parseSymbol() {
+  auto symbol = getOpcodeSymbolExpr(0, getContext()); // only one symbol
+  return parseIdentifierDefinition(symbol);
+}
+
+/// Parses a comma separated list of opcode entries
+/// opcode_dict  ::= `opcode_map` `<` opcode-entry (`,` opcode-entry)* `>`
+///
+/// OpcodeMaps underlying data structure is a DictionaryAttr.
+/// The keys are StringsAttr and the values are ArrayAttr.
+///
+/// Inside an ArrayAttr we maintain a list of opcode entries types and their
+/// values.
+ParseResult OpcodeParser::parseOpcodeMapInline(OpcodeMap &map) {
+
+  // NamedAttrList will be transformed into the DictionaryAttr
+  NamedAttrList elements;
+
+  // TODO: Final condition for parsing success
+  if (parseOpcodeDict(elements)) {
+    // llvm::errs()<< "Failure on parseOpcodeMapInline()";
+    return failure();
+  }
+
+  map = OpcodeMap::get(0, 0, {}, getContext());
+  // TODO: Transform NamedAttrList into DictionaryAttr and use it to set the
+  // OpcodeMap's underlying data structure.
+  // map = OpcodeMap::get(elements.getDictionary(getContext()));
+
+  // llvm::errs()<< "Success on parseOpcodeMapInline()";
+  return success();
+}
+
+ParseResult
+OpcodeParser::parseSendExpr(Token::Kind expectedToken,
+                            function_ref<ParseResult()> parseElementFn) {
+  consumeToken(expectedToken);
+  if (parseToken(Token::l_paren, "expected '('"))
+    return failure();
+  if (getToken().is(Token::r_paren))
+    return (emitError("no identifier inside parentheses"), failure());
+  parseElementFn();
+  if (parseToken(Token::r_paren, "expected ')'"))
+    return failure();
+  return success();
+}
+
+/// Attribute dictionary.
+///
+///   attribute-dict ::= `{` `}`
+///                    | `{` attribute-entry (`,` attribute-entry)* `}`
+///   attribute-entry ::= (bare-id | string-literal) `=` attribute-value
+///
+ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
+  llvm::SmallDenseSet<StringAttr> seenKeys;
+
+  auto parseKeyValue = [&]() -> ParseResult {
+    // The name of an attribute can either be a bare identifier, or a string.
+    Optional<StringAttr> nameId;
+    if (getToken().is(Token::string))
+      nameId = builder.getStringAttr(getToken().getStringValue());
+    else if (getToken().isAny(Token::bare_identifier, Token::inttype) ||
+             getToken().isKeyword())
+      nameId = builder.getStringAttr(getTokenSpelling());
+    else {
+      return emitError("expected attribute name");
+    }
+    if (!seenKeys.insert(*nameId).second)
+      return emitError("duplicate key '")
+             << nameId->getValue() << "' in dictionary attribute";
+    consumeToken();
+
+    // Try to parse the '=' for the attribute value.
+    if (!consumeIf(Token::equal)) {
+      return emitError("expected '=' after '")
+             << nameId->getValue() << "' entry in opcode_map'";
+    }
+
+    auto parseValue = [&]() -> ParseResult {
+      // Function to consume tokens inside parenthesis
+      auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
+      switch (getToken().getKind()) {
+      case Token::kw_op_recv: {
+        consumeToken(Token::kw_op_recv);
+        if (parseToken(Token::l_paren, "expected '('"))
+          return failure();
+        if (getToken().is(Token::r_paren))
+          return (emitError("no identifier inside parentheses"), failure());
+        // TODO: resolve middle
+        consumeToken();
+        if (parseToken(Token::r_paren, "expected ')'"))
+          return failure();
+        return success();
+      }
+      case Token::kw_op_send: {
+        return parseSendExpr(Token::kw_op_send, fn);
+      }
+      case Token::kw_op_send_literal: {
+        return parseSendExpr(Token::kw_op_send_literal, fn);
+      }
+      case Token::kw_op_send_dim: {
+        return parseSendExpr(Token::kw_op_send_dim, fn);
+      }
+      case Token::kw_op_send_idx: {
+        return parseSendExpr(Token::kw_op_send_idx, fn);
+      }
+      default:
+        emitError("Warning in parseValue'");
+        return failure();
+      }
+      return success();
+    };
+
+    // Parse list of opcode expressions
+    // opcode_list ::= `[` opcode_expr (`,` opcode_expr)* `]
+    //
+    // opcode_expr ::= send(bare-id)
+    //               | send_dim(bare-id)
+    //               | send_idx(bare-id)
+    //               | recv(bare-id)
+
+    if (parseCommaSeparatedList(Delimiter::Square, parseValue,
+                                " in opcode_map dictionary"))
+      return failure();
+
+    // auto attr = parseAttribute();
+    // if (!attr)
+    //   return failure();
+    // attributes.push_back({*nameId, attr});
+    return success();
+  };
+
+  if (parseCommaSeparatedList(Delimiter::LessGreater, parseKeyValue,
+                              " in opcode_map dictionary"))
+    return failure();
+
+  return success();
+}
+
 /// Parses an ambiguous opcode map or integer set definition inline.
 ParseResult OpcodeParser::parseOpcodeMapOrIntegerSetInline(OpcodeMap &map,
                                                            IntegerSet &set) {
@@ -661,8 +820,8 @@ OpcodeExpr OpcodeParser::parseOpcodeConstraint(bool *isEq) {
 //                               " in integer set constraint list"))
 //     return IntegerSet();
 
-//   // If no constraints were parsed, then treat this as a degenerate 'true' case.
-//   if (constraints.empty()) {
+//   // If no constraints were parsed, then treat this as a degenerate 'true'
+//   case. if (constraints.empty()) {
 //     /* 0 == 0 */
 //     auto zero = getOpcodeConstantExpr(0, getContext());
 //     return IntegerSet::get(numDims, numSymbols, zero, true);
@@ -677,26 +836,19 @@ OpcodeExpr OpcodeParser::parseOpcodeConstraint(bool *isEq) {
 //===----------------------------------------------------------------------===//
 
 /// Parse an ambiguous reference to either and opcode map or an integer set.
-ParseResult Parser::parseOpcodeMapOrIntegerSetReference(OpcodeMap &map,
-                                                        IntegerSet &set) {
-  return OpcodeParser(state).parseOpcodeMapOrIntegerSetInline(map, set);
-}
+/// TODO: Remove double function call
 ParseResult Parser::parseOpcodeMapReference(OpcodeMap &map) {
-  SMLoc curLoc = getToken().getLoc();
-  IntegerSet set;
-  if (parseOpcodeMapOrIntegerSetReference(map, set))
+
+  if (OpcodeParser(state).parseOpcodeMapInline(map)) {
+    // llvm::errs()<< "Failed parseOpcodeMapReference()";
     return failure();
-  if (set)
-    return emitError(curLoc, "expected OpcodeMap, but got IntegerSet");
-  return success();
-}
-ParseResult Parser::parseIntegerSetReference(IntegerSet &set) {
-  SMLoc curLoc = getToken().getLoc();
-  OpcodeMap map;
-  if (parseOpcodeMapOrIntegerSetReference(map, set))
-    return failure();
-  if (map)
-    return emitError(curLoc, "expected IntegerSet, but got OpcodeMap");
+  }
+
+  // TODO: Remove after certifying that errors are capture above.
+  // if (!map)
+  //   return emitError(getToken().getLoc(), "Something went wrong with opcode
+  //   map parsing.");
+  // llvm::errs()<< "Success on parseOpcodeMapReference()";
   return success();
 }
 
@@ -719,28 +871,28 @@ Parser::parseOpcodeExprOfSSAIds(OpcodeExpr &expr,
       .parseOpcodeExprOfSSAIds(expr);
 }
 
-IntegerSet mlir::parseIntegerSet(StringRef inputStr, MLIRContext *context,
-                                 bool printDiagnosticInfo) {
-  llvm::SourceMgr sourceMgr;
-  auto memBuffer = llvm::MemoryBuffer::getMemBuffer(
-      inputStr, /*BufferName=*/"<mlir_parser_buffer>",
-      /*RequiresNullTerminator=*/false);
-  sourceMgr.AddNewSourceBuffer(std::move(memBuffer), SMLoc());
-  SymbolState symbolState;
-  ParserState state(sourceMgr, context, symbolState, /*asmState=*/nullptr);
-  Parser parser(state);
+// IntegerSet mlir::parseIntegerSet(StringRef inputStr, MLIRContext *context,
+//                                  bool printDiagnosticInfo) {
+//   llvm::SourceMgr sourceMgr;
+//   auto memBuffer = llvm::MemoryBuffer::getMemBuffer(
+//       inputStr, /*BufferName=*/"<mlir_parser_buffer>",
+//       /*RequiresNullTerminator=*/false);
+//   sourceMgr.AddNewSourceBuffer(std::move(memBuffer), SMLoc());
+//   SymbolState symbolState;
+//   ParserState state(sourceMgr, context, symbolState, /*asmState=*/nullptr);
+//   Parser parser(state);
 
-  raw_ostream &os = printDiagnosticInfo ? llvm::errs() : llvm::nulls();
-  SourceMgrDiagnosticHandler handler(sourceMgr, context, os);
-  IntegerSet set;
-  if (parser.parseIntegerSetReference(set))
-    return IntegerSet();
+//   raw_ostream &os = printDiagnosticInfo ? llvm::errs() : llvm::nulls();
+//   SourceMgrDiagnosticHandler handler(sourceMgr, context, os);
+//   IntegerSet set;
+//   if (parser.parseIntegerSetReference(set))
+//     return IntegerSet();
 
-  Token endTok = parser.getToken();
-  if (endTok.isNot(Token::eof)) {
-    parser.emitError(endTok.getLoc(), "encountered unexpected token");
-    return IntegerSet();
-  }
+//   Token endTok = parser.getToken();
+//   if (endTok.isNot(Token::eof)) {
+//     parser.emitError(endTok.getLoc(), "encountered unexpected token");
+//     return IntegerSet();
+//   }
 
-  return set;
-}
+//   return set;
+// }

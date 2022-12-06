@@ -33,11 +33,7 @@ class Attribute;
 struct LogicalResult;
 class MLIRContext;
 
-/// A multi-dimensional affine map
-/// Opcode map's are immutable like Type's, and they are uniqued.
-/// Eg: (d0, d1) -> (d0/128, d0 mod 128, d1)
-/// The names used (d0, d1) don't matter - it's the mathematical function that
-/// is unique to this affine map.
+/// A dictionary of opcodes
 class OpcodeMap {
 public:
   using ImplType = detail::OpcodeMapStorage;
@@ -68,7 +64,7 @@ public:
 
   /// Returns an OpcodeMap with 'numDims' identity result dim exprs.
   static OpcodeMap getAMultiDimIdentityMap(unsigned numDims,
-                                          MLIRContext *context);
+                                           MLIRContext *context);
 
   /// Returns an identity affine map (d0, ..., dn) -> (dp, ..., dn) on the most
   /// minor dimensions.
@@ -551,7 +547,7 @@ SmallVector<T> applyPermutationMap(OpcodeMap map, llvm::ArrayRef<T> source) {
 /// in `exprsLists` and stores them in `maxDim` and `maxSym` respectively.
 template <typename OpcodeExprContainer>
 static void getAMaxDimAndSymbol(ArrayRef<OpcodeExprContainer> exprsList,
-                               int64_t &maxDim, int64_t &maxSym) {
+                                int64_t &maxDim, int64_t &maxSym) {
   for (const auto &exprs : exprsList) {
     for (auto expr : exprs) {
       expr.walk([&maxDim, &maxSym](OpcodeExpr e) {

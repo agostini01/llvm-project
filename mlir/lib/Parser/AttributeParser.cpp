@@ -65,6 +65,21 @@ Attribute Parser::parseAttribute(Type type) {
     return IntegerSetAttr::get(set);
   }
 
+  // Parse an OpcodeMap attribute.
+  // opcode_dict  ::= `opcode_map` `<` opcode-entry (`,` opcode-entry)* `>`
+  case Token::kw_opcode_map: {
+    consumeToken(Token::kw_opcode_map);
+
+    OpcodeMap map;
+    if (parseOpcodeMapReference(map)) {
+      return Attribute();
+    }
+    // llvm::errs()<<"Completed opcode Parsing";
+    // TODO, return the right attribute
+    return OpcodeMapAttr::get(map);
+    // return Attribute();
+  }
+
   // Parse an array attribute.
   case Token::l_square: {
     SmallVector<Attribute, 4> elements;
@@ -225,6 +240,7 @@ OptionalParseResult Parser::parseOptionalAttribute(Attribute &attribute,
   case Token::kw_false:
   case Token::kw_loc:
   case Token::kw_opaque:
+  case Token::kw_opcode_map:
   case Token::kw_sparse:
   case Token::kw_true:
   case Token::kw_unit:
@@ -505,8 +521,7 @@ ParseResult TensorLiteralParser::parse(bool allowHex) {
 
 /// Build a dense attribute instance with the parsed elements and the given
 /// shaped type.
-DenseElementsAttr TensorLiteralParser::getAttr(SMLoc loc,
-                                               ShapedType type) {
+DenseElementsAttr TensorLiteralParser::getAttr(SMLoc loc, ShapedType type) {
   Type eltType = type.getElementType();
 
   // Check to see if we parse the literal from a hex string.
@@ -656,8 +671,7 @@ TensorLiteralParser::getFloatAttrElements(SMLoc loc, FloatType eltTy,
 }
 
 /// Build a Dense String attribute for the given type.
-DenseElementsAttr TensorLiteralParser::getStringAttr(SMLoc loc,
-                                                     ShapedType type,
+DenseElementsAttr TensorLiteralParser::getStringAttr(SMLoc loc, ShapedType type,
                                                      Type eltTy) {
   if (hexStorage.hasValue()) {
     auto stringValue = hexStorage.getValue().getStringValue();
@@ -678,8 +692,7 @@ DenseElementsAttr TensorLiteralParser::getStringAttr(SMLoc loc,
 }
 
 /// Build a Dense attribute with hex data for the given type.
-DenseElementsAttr TensorLiteralParser::getHexAttr(SMLoc loc,
-                                                  ShapedType type) {
+DenseElementsAttr TensorLiteralParser::getHexAttr(SMLoc loc, ShapedType type) {
   Type elementType = type.getElementType();
   if (!elementType.isIntOrIndexOrFloat() && !elementType.isa<ComplexType>()) {
     p.emitError(loc)

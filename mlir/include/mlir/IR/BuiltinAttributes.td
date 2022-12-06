@@ -76,20 +76,32 @@ def Builtin_OpcodeMapAttr : Builtin_Attr<"OpcodeMap", []> {
     Syntax:
 
     ```
-    opcode-map-attribute ::= `accel_opcode_map` `<` opcode-map `>`
+    opcode-map-attribute ::= `opcode_map` `<` opcode-entry (`,` opcode-entry)* `>`
+
+    opcode_entry ::= (bare-id | string-literal) `=` opcode_list
+
+    opcode_list ::= `[` opcode_expr (`,` opcode_expr)* `]`
+
+    opcode_expr ::= `send` `(` bare-id `)`
+                  | `send_literal` `(` integer-literal `)`
+                  | `send_dim` `(` bare-id `)`
+                  | `send_idx` `(` bare-id `)`
+                  | `recv` `(` bare-id `)`
     ```
 
     Examples:
 
     ```mlir
-    accel_opcode_map = {
-      map<s0 -> [send(0)]>,
-      map<s1 -> [send(1)]>,
-      map<s2 -> [send(1)]>,
-      map<r2 -> [recv(2)]>,
-      map<s0s1r2 -> [send(0), send(1), send(2), recv(2)]>,
-      map<reset -> [send("32")]>,
-    }
+    opcode_map<
+      s0 = [op_send(0)],
+      s1 = [op_send(1)],
+      s2 = [op_send(1)],
+      r2 = [op_recv(2)],
+      s0s1r2 = [op_send(0), op_send(1), op_send(2), op_recv(2)],
+      reset = [op_send(0)],
+      s0_dim = [op_send_literal(30), op_send_dim(2)],
+      s0_idxs = [op_send_literal(30), op_send_idx(2)]
+    >
     ```
   }];
   let parameters = (ins "OpcodeMap":$value);

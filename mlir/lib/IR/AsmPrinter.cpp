@@ -876,8 +876,7 @@ private:
 };
 } // namespace
 
-SSANameState::SSANameState(
-    Operation *op, const OpPrintingFlags &printerFlags)
+SSANameState::SSANameState(Operation *op, const OpPrintingFlags &printerFlags)
     : printerFlags(printerFlags) {
   llvm::SaveAndRestore<unsigned> valueIDSaver(nextValueID);
   llvm::SaveAndRestore<unsigned> argumentIDSaver(nextArgumentID);
@@ -1304,6 +1303,7 @@ public:
                   function_ref<void(unsigned, bool)> printValueName = nullptr);
   void printAffineConstraint(AffineExpr expr, bool isEq);
   void printIntegerSet(IntegerSet set);
+  void printOpcodeMap(OpcodeMap map);
 
 protected:
   void printOptionalAttrDict(ArrayRef<NamedAttribute> attrs,
@@ -1706,6 +1706,14 @@ void AsmPrinter::Impl::printAttribute(Attribute attr,
       printAttribute(attr, AttrTypeElision::May);
     });
     os << ']';
+
+  } else if (auto opcodeMapAttr = attr.dyn_cast<OpcodeMapAttr>()) {
+    os << "opcode_map<";
+    opcodeMapAttr.getValue().print(os);
+    os << '>';
+
+    // AffineMap always elides the type.
+    return;
 
   } else if (auto affineMapAttr = attr.dyn_cast<AffineMapAttr>()) {
     os << "affine_map<";
@@ -2362,6 +2370,12 @@ void AsmPrinter::Impl::printAffineMap(AffineMap map) {
   os << ')';
 }
 
+void AsmPrinter::Impl::printOpcodeMap(OpcodeMap map) {
+  // Dimension identifiers.
+  // TODO: Implement printer
+  os << "s0 = [send(0)]";
+}
+
 void AsmPrinter::Impl::printIntegerSet(IntegerSet set) {
   // Dimension identifiers.
   os << '(';
@@ -2844,6 +2858,14 @@ void AffineMap::print(raw_ostream &os) const {
 
 void IntegerSet::print(raw_ostream &os) const {
   AsmPrinter::Impl(os).printIntegerSet(*this);
+}
+
+void OpcodeMap::print(raw_ostream &os) const {
+  if (!map) {
+    os << "<<NULL AFFINE MAP>>";
+    return;
+  }
+  AsmPrinter::Impl(os).printOpcodeMap(*this);
 }
 
 void Value::print(raw_ostream &os) {
