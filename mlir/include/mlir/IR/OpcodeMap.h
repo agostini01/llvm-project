@@ -157,6 +157,10 @@ public:
   ArrayRef<OpcodeExpr> getResults() const;
   OpcodeExpr getResult(unsigned idx) const;
 
+  // TODO: Get opcodes should actually take a key representing the opcode name.
+  ArrayRef<OpcodeExpr> getOpcodes() const;
+  OpcodeExpr getOpcode(unsigned idx) const;
+
   /// Extracts the position of the dimensional expression at the given result,
   /// when the caller knows it is safe to do so.
   unsigned getDimPosition(unsigned idx) const;

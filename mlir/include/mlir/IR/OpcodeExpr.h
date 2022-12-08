@@ -34,6 +34,9 @@ struct OpcodeBinaryOpExprStorage;
 struct OpcodeDimExprStorage;
 struct OpcodeSymbolExprStorage;
 struct OpcodeConstantExprStorage;
+struct OpcodeSendRecvIdExprStorage;
+struct OpcodeSendIdPosExprStorage;
+struct OpcodeSendLiteralExprStorage;
 
 } // namespace detail
 
@@ -59,9 +62,15 @@ enum class OpcodeExprKind {
   DimId,
   /// Symbolic identifier.
   SymbolId,
+
+  Send,
+  SendLiteral,
+  SendDim,
+  SendIdx,
+  Recv
 };
 
-/// Base type for affine expression.
+/// Base type for opcode expression.
 /// OpcodeExpr's are immutable value types with intuitive operators to
 /// operate on chainable, lightweight compositions.
 /// An OpcodeExpr is an interface to the underlying storage type pointer.
@@ -102,21 +111,21 @@ public:
   /// constants, i.e., it does not involve dimensional identifiers.
   bool isSymbolicOrConstant() const;
 
-  /// Returns true if this is a pure affine expression, i.e., multiplication,
+  /// Returns true if this is a pure opcode expression, i.e., multiplication,
   /// floordiv, ceildiv, and mod is only allowed w.r.t constants.
   bool isPureOpcode() const;
 
-  /// Returns the greatest known integral divisor of this affine expression. The
+  /// Returns the greatest known integral divisor of this opcode expression. The
   /// result is always positive.
   int64_t getLargestKnownDivisor() const;
 
-  /// Return true if the affine expression is a multiple of 'factor'.
+  /// Return true if the opcode expression is a multiple of 'factor'.
   bool isMultipleOf(int64_t factor) const;
 
-  /// Return true if the affine expression involves OpcodeDimExpr `position`.
+  /// Return true if the opcode expression involves OpcodeDimExpr `position`.
   bool isFunctionOfDim(unsigned position) const;
 
-  /// Return true if the affine expression involves OpcodeSymbolExpr `position`.
+  /// Return true if the opcode expression involves OpcodeSymbolExpr `position`.
   bool isFunctionOfSymbol(unsigned position) const;
 
   /// Walk all of the OpcodeExpr's in this expression in postorder.
@@ -228,6 +237,48 @@ public:
   unsigned getPosition() const;
 };
 
+/// A symbolic identifier appearing in an opcode expression.
+class OpcodeSendIdExpr : public OpcodeExpr {
+public:
+  using ImplType = detail::OpcodeSendRecvIdExprStorage;
+  /* implicit */ OpcodeSendIdExpr(OpcodeExpr::ImplType *ptr = nullptr);
+  unsigned getId() const;
+};
+
+/// A symbolic identifier appearing in an opcode expression.
+class OpcodeRecvIdExpr : public OpcodeExpr {
+public:
+  using ImplType = detail::OpcodeSendRecvIdExprStorage;
+  /* implicit */ OpcodeRecvIdExpr(OpcodeExpr::ImplType *ptr = nullptr);
+  unsigned getId() const;
+};
+
+/// A symbolic identifier appearing in an opcode expression.
+class OpcodeSendDimExpr : public OpcodeExpr {
+public:
+  using ImplType = detail::OpcodeSendIdPosExprStorage;
+  /* implicit */ OpcodeSendDimExpr(OpcodeExpr::ImplType *ptr = nullptr);
+  unsigned getId() const;
+  unsigned getPosition() const;
+};
+
+/// A symbolic identifier appearing in an opcode expression.
+class OpcodeSendIdxExpr : public OpcodeExpr {
+public:
+  using ImplType = detail::OpcodeSendIdPosExprStorage;
+  /* implicit */ OpcodeSendIdxExpr(OpcodeExpr::ImplType *ptr = nullptr);
+  unsigned getId() const;
+  unsigned getPosition() const;
+};
+
+/// An integer constant appearing in opcode expression.
+class OpcodeSendLiteralExpr : public OpcodeExpr {
+public:
+  using ImplType = detail::OpcodeSendLiteralExprStorage;
+  /* implicit */ OpcodeSendLiteralExpr(OpcodeExpr::ImplType *ptr = nullptr);
+  int getValue() const;
+};
+
 /// An integer constant appearing in affine expression.
 class OpcodeConstantExpr : public OpcodeExpr {
 public:
@@ -318,7 +369,8 @@ OpcodeExpr simplifyOpcodeExpr(OpcodeExpr expr, unsigned numDims,
 // void bindSymbols(MLIRContext *ctx) {}
 
 // template <int N, typename OpcodeExprTy, typename... OpcodeExprTy2>
-// void bindSymbols(MLIRContext *ctx, OpcodeExprTy &e, OpcodeExprTy2 &...exprs) {
+// void bindSymbols(MLIRContext *ctx, OpcodeExprTy &e, OpcodeExprTy2 &...exprs)
+// {
 //   e = getOpcodeSymbolExpr(N, ctx);
 //   bindSymbols<N + 1, OpcodeExprTy2 &...>(ctx, exprs...);
 // }

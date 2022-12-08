@@ -242,7 +242,7 @@ OpcodeMap::inferFromExprList(ArrayRef<SmallVector<OpcodeExpr, 4>> exprsList) {
 }
 
 OpcodeMap OpcodeMap::getAMultiDimIdentityMap(unsigned numDims,
-                                            MLIRContext *context) {
+                                             MLIRContext *context) {
   SmallVector<OpcodeExpr, 4> dimExprs;
   dimExprs.reserve(numDims);
   for (unsigned i = 0; i < numDims; ++i)
@@ -309,6 +309,14 @@ ArrayRef<OpcodeExpr> OpcodeMap::getResults() const {
   return map->results();
 }
 OpcodeExpr OpcodeMap::getResult(unsigned idx) const {
+  return getResults()[idx];
+}
+
+ArrayRef<OpcodeExpr> OpcodeMap::getOpcodes() const {
+  assert(map && "uninitialized map storage");
+  return map->results(); // TODO: Results should be renamed
+}
+OpcodeExpr OpcodeMap::getOpcode(unsigned idx) const {
   return getResults()[idx];
 }
 

@@ -14,8 +14,8 @@
 #ifndef MLIR_IR_OPCODEEXPRDETAIL_H_
 #define MLIR_IR_OPCODEEXPRDETAIL_H_
 
-#include "mlir/IR/OpcodeExpr.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/OpcodeExpr.h"
 #include "mlir/Support/StorageUniquer.h"
 
 namespace mlir {
@@ -28,6 +28,71 @@ namespace detail {
 struct OpcodeExprStorage : public StorageUniquer::BaseStorage {
   MLIRContext *context;
   OpcodeExprKind kind;
+};
+
+/// A send(id) or recv(id) expression appearing in an opcode expression.
+struct OpcodeSendRecvIdExprStorage : public OpcodeExprStorage {
+  using KeyTy = std::tuple<unsigned, unsigned>;
+
+  bool operator==(const KeyTy &key) const {
+    return static_cast<OpcodeExprKind>(std::get<0>(key)) == kind &&
+           std::get<1>(key) == id;
+  }
+
+  static OpcodeSendRecvIdExprStorage *
+  construct(StorageUniquer::StorageAllocator &allocator, const KeyTy &key) {
+    auto *result = allocator.allocate<OpcodeSendRecvIdExprStorage>();
+    result->kind = static_cast<OpcodeExprKind>(std::get<0>(key));
+    result->id = std::get<1>(key);
+    return result;
+  }
+
+  unsigned id;
+};
+
+/// A send_*(id, pos) expression appearing in an opcode expression.
+/// This supports: send_idx(id, pos), send_dim(id, pos)
+struct OpcodeSendIdPosExprStorage : public OpcodeExprStorage {
+  using KeyTy = std::tuple<unsigned, unsigned, unsigned>;
+
+  bool operator==(const KeyTy &key) const {
+    return static_cast<OpcodeExprKind>(std::get<0>(key)) == kind &&
+           std::get<1>(key) == id && std::get<2>(key) == pos;
+  }
+
+  static OpcodeSendIdPosExprStorage *
+  construct(StorageUniquer::StorageAllocator &allocator, const KeyTy &key) {
+    auto *result = allocator.allocate<OpcodeSendIdPosExprStorage>();
+    result->kind = static_cast<OpcodeExprKind>(std::get<0>(key));
+    result->id = std::get<1>(key);
+    result->pos = std::get<2>(key);
+    return result;
+  }
+
+  unsigned id;
+  unsigned pos;
+};
+
+/// A send_literal(integer_literal) expression appearing in an opcode
+/// expression. This supports: send_literal(v: i32)
+/// TODO: Make it support literals of different bitwidths
+struct OpcodeSendLiteralExprStorage : public OpcodeExprStorage {
+  using KeyTy = std::tuple<unsigned, int>;
+
+  bool operator==(const KeyTy &key) const {
+    return static_cast<OpcodeExprKind>(std::get<0>(key)) == kind &&
+           std::get<1>(key) == value;
+  }
+
+  static OpcodeSendLiteralExprStorage *
+  construct(StorageUniquer::StorageAllocator &allocator, const KeyTy &key) {
+    auto *result = allocator.allocate<OpcodeSendLiteralExprStorage>();
+    result->kind = static_cast<OpcodeExprKind>(std::get<0>(key));
+    result->value = std::get<1>(key);
+    return result;
+  }
+
+  int value;
 };
 
 /// A binary operation appearing in an affine expression.

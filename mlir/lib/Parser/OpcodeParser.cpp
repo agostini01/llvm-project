@@ -55,8 +55,8 @@ public:
   ///
   /// opcode_list  ::= `[` opcode_expr (`,` opcode_expr)* `]
   ///
-  /// opcode_expr  ::= op_send(bare-id
-  /// .              | send_literal(integer-literal))
+  /// opcode_expr  ::= op_send(bare-id)
+  /// .              | op_send_literal(integer-literal)
   ///                | op_send_dim(bare-id)
   ///                | op_send_idx(bare-id)
   ///                | op_recv(bare-id)
@@ -89,6 +89,8 @@ private:
 
   OpcodeExpr parseOpcodeExpr();
   ParseResult parseSendExpr(Token::Kind expectedToken,
+                            function_ref<ParseResult()> parseElementFn);
+  ParseResult parseRecvExpr(Token::Kind expectedToken,
                             function_ref<ParseResult()> parseElementFn);
   OpcodeExpr parseParentheticalExpr();
   OpcodeExpr parseNegateExpression(OpcodeExpr lhs);
@@ -573,6 +575,20 @@ OpcodeParser::parseSendExpr(Token::Kind expectedToken,
   return success();
 }
 
+ParseResult
+OpcodeParser::parseRecvExpr(Token::Kind expectedToken,
+                            function_ref<ParseResult()> parseElementFn) {
+  consumeToken(expectedToken);
+  if (parseToken(Token::l_paren, "expected '('"))
+    return failure();
+  if (getToken().is(Token::r_paren))
+    return (emitError("no identifier inside parentheses"), failure());
+  parseElementFn();
+  if (parseToken(Token::r_paren, "expected ')'"))
+    return failure();
+  return success();
+}
+
 /// Attribute dictionary.
 ///
 ///   attribute-dict ::= `{` `}`
@@ -609,16 +625,7 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
       auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
       switch (getToken().getKind()) {
       case Token::kw_op_recv: {
-        consumeToken(Token::kw_op_recv);
-        if (parseToken(Token::l_paren, "expected '('"))
-          return failure();
-        if (getToken().is(Token::r_paren))
-          return (emitError("no identifier inside parentheses"), failure());
-        // TODO: resolve middle
-        consumeToken();
-        if (parseToken(Token::r_paren, "expected ')'"))
-          return failure();
-        return success();
+        return parseRecvExpr(Token::kw_op_recv, fn);
       }
       case Token::kw_op_send: {
         return parseSendExpr(Token::kw_op_send, fn);

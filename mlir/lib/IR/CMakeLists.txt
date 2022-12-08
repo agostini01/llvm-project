@@ -19,6 +19,7 @@ add_mlir_library(MLIRIR
   Location.cpp
   MLIRContext.cpp
   OpcodeExpr.cpp
+  OpcodeList.cpp
   OpcodeMap.cpp
   Operation.cpp
   OperationSupport.cpp

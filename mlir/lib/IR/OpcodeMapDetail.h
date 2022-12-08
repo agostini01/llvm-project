@@ -28,13 +28,13 @@ struct OpcodeMapStorage final
   /// The hash key used for uniquing.
   using KeyTy = std::tuple<unsigned, unsigned, ArrayRef<OpcodeExpr>>;
 
-  unsigned numDims;
+  unsigned numDims; // TODO:: Using numDims as numOpcodes
   unsigned numSymbols;
   unsigned numResults;
 
   MLIRContext *context;
 
-  /// The affine expressions for this (multi-dimensional) map.
+  /// The opcode expressions for this opcode map.
   ArrayRef<OpcodeExpr> results() const {
     return {getTrailingObjects<OpcodeExpr>(), numResults};
   }
