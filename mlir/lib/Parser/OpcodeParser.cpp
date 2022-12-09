@@ -620,6 +620,7 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
              << nameId->getValue() << "' entry in opcode_map'";
     }
 
+    SmallVector<OpcodeExpr, 8> exprs;
     auto parseValue = [&]() -> ParseResult {
       // Function to consume tokens inside parenthesis
       auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
@@ -631,6 +632,19 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
         return parseSendExpr(Token::kw_op_send, fn);
       }
       case Token::kw_op_send_literal: {
+        auto fn = [&]() -> ParseResult {
+          if (getToken().is(Token::integer)) {
+            Attribute attr = parseAttribute();
+            int value = attr.dyn_cast<IntegerAttr>().getInt();
+            exprs.push_back(getOpcodeSendLiteralExpr(value, getContext()));
+            llvm::errs() << "Parsed expression: "
+                         << getOpcodeSendLiteralExpr(value, getContext())
+                         << "\n";
+          } else {
+            return emitError("expected integer literal");
+          }
+          return success();
+        };
         return parseSendExpr(Token::kw_op_send_literal, fn);
       }
       case Token::kw_op_send_dim: {
@@ -657,6 +671,10 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
     if (parseCommaSeparatedList(Delimiter::Square, parseValue,
                                 " in opcode_map dictionary"))
       return failure();
+
+    // Save attrs as OpcodeList
+    // TODO: No OpcodeList get yet!
+    // attributes.push_back({*nameId, OpcodeList::get(exprs, getContext())});
 
     // auto attr = parseAttribute();
     // if (!attr)

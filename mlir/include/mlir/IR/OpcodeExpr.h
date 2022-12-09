@@ -305,6 +305,9 @@ OpcodeExpr getOpcodeConstantExpr(int64_t constant, MLIRContext *context);
 OpcodeExpr getOpcodeBinaryOpExpr(OpcodeExprKind kind, OpcodeExpr lhs,
                                  OpcodeExpr rhs);
 
+OpcodeExpr getOpcodeSendExpr(unsigned id, MLIRContext *context);
+OpcodeExpr getOpcodeSendLiteralExpr(int literal, MLIRContext *context);
+
 /// Constructs an affine expression from a flat ArrayRef. If there are local
 /// identifiers (neither dimensional nor symbolic) that appear in the sum of
 /// products expression, 'localExprs' is expected to have the OpcodeExpr
@@ -329,6 +332,16 @@ bool OpcodeExpr::isa() const {
     return getKind() == OpcodeExprKind::SymbolId;
   if (std::is_same<U, OpcodeConstantExpr>::value)
     return getKind() == OpcodeExprKind::Constant;
+  if (std::is_same<U, OpcodeSendIdExpr>::value)
+    return getKind() == OpcodeExprKind::Send;
+  if (std::is_same<U, OpcodeRecvIdExpr>::value)
+    return getKind() == OpcodeExprKind::Recv;
+  if (std::is_same<U, OpcodeSendDimExpr>::value)
+    return getKind() == OpcodeExprKind::SendDim;
+  if (std::is_same<U, OpcodeSendIdxExpr>::value)
+    return getKind() == OpcodeExprKind::SendIdx;
+  if (std::is_same<U, OpcodeSendLiteralExpr>::value)
+    return getKind() == OpcodeExprKind::SendLiteral;
 }
 template <typename U>
 U OpcodeExpr::dyn_cast() const {

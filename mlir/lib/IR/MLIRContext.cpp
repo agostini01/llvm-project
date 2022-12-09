@@ -342,6 +342,12 @@ MLIRContext::MLIRContext(const DialectRegistry &registry, Threading setting)
   impl->opcodeUniquer.registerParametricStorageType<OpcodeDimExprStorage>();
   impl->opcodeUniquer.registerParametricStorageType<OpcodeMapStorage>();
   impl->opcodeUniquer.registerParametricStorageType<IntegerSetStorage>();
+  impl->opcodeUniquer
+      .registerParametricStorageType<OpcodeSendRecvIdExprStorage>();
+  impl->opcodeUniquer
+      .registerParametricStorageType<OpcodeSendIdPosExprStorage>();
+  impl->opcodeUniquer
+      .registerParametricStorageType<OpcodeSendLiteralExprStorage>();
 }
 
 MLIRContext::~MLIRContext() = default;

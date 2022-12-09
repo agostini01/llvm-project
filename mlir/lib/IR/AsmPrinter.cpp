@@ -23,6 +23,9 @@
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/OpcodeExpr.h"
+#include "mlir/IR/OpcodeList.h"
+#include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/SubElementInterfaces.h"
 #include "llvm/ADT/APFloat.h"
@@ -1303,6 +1306,8 @@ public:
                   function_ref<void(unsigned, bool)> printValueName = nullptr);
   void printAffineConstraint(AffineExpr expr, bool isEq);
   void printIntegerSet(IntegerSet set);
+  void printOpcodeExpr(OpcodeExpr expr);
+  void printOpcodeList(OpcodeList list);
   void printOpcodeMap(OpcodeMap map);
 
 protected:
@@ -2370,6 +2375,37 @@ void AsmPrinter::Impl::printAffineMap(AffineMap map) {
   os << ')';
 }
 
+//Function to print the OpcodeExpr
+void AsmPrinter::Impl::printOpcodeExpr(OpcodeExpr expr) {
+  OpcodeExprKind kind = expr.getKind();
+  switch (kind) {
+  case OpcodeExprKind::Send: {
+    os<<"send("<<expr.dyn_cast<OpcodeSendIdExpr>().getId()<<")";
+    break;
+  }
+  case OpcodeExprKind::Recv: {
+    os<<"recv("<<expr.dyn_cast<OpcodeRecvIdExpr>().getId()<<")";
+    break;
+  }
+  case OpcodeExprKind::SendLiteral: {
+    os<<"send_literal("<<expr.dyn_cast<OpcodeSendLiteralExpr>().getValue()<<")";
+    break;
+  }
+  // TODO: Implement Handle SendDim SendIdx
+  default:
+    llvm_unreachable("Unknown OpcodeExprKind");
+    break;
+  }
+  return;
+}
+
+void AsmPrinter::Impl::printOpcodeList(OpcodeList list) {
+  os << "[";
+  interleaveComma(list.getOpcodes(),
+                  [&](OpcodeExpr expr) { printOpcodeExpr(expr); });
+  os << "]";
+}
+
 void AsmPrinter::Impl::printOpcodeMap(OpcodeMap map) {
   // Dimension identifiers.
   // TODO: Implement printer
@@ -2860,13 +2896,30 @@ void IntegerSet::print(raw_ostream &os) const {
   AsmPrinter::Impl(os).printIntegerSet(*this);
 }
 
+void OpcodeExpr::print(raw_ostream &os) const {
+  if (!expr) {
+    os << "<<NULL OPCODE EXPR>>";
+    return;
+  }
+  AsmPrinter::Impl(os).printOpcodeExpr(*this);
+}
+
+void OpcodeList::print(raw_ostream &os) const {
+  if (!list) {
+    os << "<<NULL OPCODE LIST>>";
+    return;
+  }
+  AsmPrinter::Impl(os).printOpcodeList(*this);
+}
+
 void OpcodeMap::print(raw_ostream &os) const {
   if (!map) {
-    os << "<<NULL AFFINE MAP>>";
+    os << "<<NULL OPCODE MAP>>";
     return;
   }
   AsmPrinter::Impl(os).printOpcodeMap(*this);
 }
+
 
 void Value::print(raw_ostream &os) {
   if (!impl) {

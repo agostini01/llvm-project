@@ -15,6 +15,7 @@
 #define MLIR_IR_OPCODEMAP_H
 
 #include "mlir/IR/OpcodeExpr.h"
+#include "mlir/IR/OpcodeList.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMapInfo.h"

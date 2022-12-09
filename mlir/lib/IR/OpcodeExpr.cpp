@@ -8,11 +8,11 @@
 
 #include <utility>
 
-#include "mlir/IR/OpcodeExpr.h"
 #include "OpcodeExprDetail.h"
+#include "mlir/IR/IntegerSet.h"
+#include "mlir/IR/OpcodeExpr.h"
 #include "mlir/IR/OpcodeExprVisitor.h"
 #include "mlir/IR/OpcodeMap.h"
-#include "mlir/IR/IntegerSet.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/Support/TypeID.h"
 #include "llvm/ADT/STLExtras.h"
@@ -498,6 +498,41 @@ unsigned OpcodeSymbolExpr::getPosition() const {
   return static_cast<ImplType *>(expr)->position;
 }
 
+// Implement constructors
+OpcodeSendIdExpr::OpcodeSendIdExpr(OpcodeExpr::ImplType *ptr)
+    : OpcodeExpr(ptr) {}
+OpcodeRecvIdExpr::OpcodeRecvIdExpr(OpcodeExpr::ImplType *ptr)
+    : OpcodeExpr(ptr) {}
+OpcodeSendLiteralExpr::OpcodeSendLiteralExpr(OpcodeExpr::ImplType *ptr)
+    : OpcodeExpr(ptr) {}
+OpcodeSendDimExpr::OpcodeSendDimExpr(OpcodeExpr::ImplType *ptr)
+    : OpcodeExpr(ptr) {}
+OpcodeSendIdxExpr::OpcodeSendIdxExpr(OpcodeExpr::ImplType *ptr)
+    : OpcodeExpr(ptr) {}
+
+// Implement member accessors.
+unsigned OpcodeSendIdExpr::getId() const {
+  return static_cast<ImplType *>(expr)->id;
+}
+unsigned OpcodeRecvIdExpr::getId() const {
+  return static_cast<ImplType *>(expr)->id;
+}
+int OpcodeSendLiteralExpr::getValue() const {
+  return static_cast<ImplType *>(expr)->value;
+}
+unsigned OpcodeSendDimExpr::getId() const {
+  return static_cast<ImplType *>(expr)->id;
+}
+unsigned OpcodeSendDimExpr::getPosition() const {
+  return static_cast<ImplType *>(expr)->pos;
+}
+unsigned OpcodeSendIdxExpr::getId() const {
+  return static_cast<ImplType *>(expr)->id;
+}
+unsigned OpcodeSendIdxExpr::getPosition() const {
+  return static_cast<ImplType *>(expr)->pos;
+}
+
 OpcodeExpr mlir::getOpcodeSymbolExpr(unsigned position, MLIRContext *context) {
   return getOpcodeDimOrSymbol(OpcodeExprKind::SymbolId, position, context);
   ;
@@ -520,6 +555,16 @@ OpcodeExpr mlir::getOpcodeConstantExpr(int64_t constant, MLIRContext *context) {
 
   StorageUniquer &uniquer = context->getOpcodeUniquer();
   return uniquer.get<OpcodeConstantExprStorage>(assignCtx, constant);
+}
+
+OpcodeExpr mlir::getOpcodeSendLiteralExpr(int literal, MLIRContext *context) {
+  auto assignCtx = [context](OpcodeSendLiteralExprStorage *storage) {
+    storage->context = context;
+  };
+
+  StorageUniquer &uniquer = context->getOpcodeUniquer();
+  return uniquer.get<OpcodeSendLiteralExprStorage>(
+      assignCtx, static_cast<unsigned>(OpcodeExprKind::SendLiteral), literal);
 }
 
 /// Simplify add expression. Return nullptr if it can't be simplified.
