@@ -23,6 +23,23 @@ MLIRContext *OpcodeList::getContext() const { return list->context; }
 
 bool OpcodeList::isEmpty() const { return getNumOpcodes() == 0; }
 
+OpcodeList::iterator OpcodeList::begin() const {
+  // Warning: is this alive long enough?
+  auto opcodes = list->results();
+  return &opcodes;
+}
+OpcodeList::iterator OpcodeList::end() const {
+  auto opcodes = list->results();
+  return &opcodes + list->numOpcodes;
+}
+
+OpcodeList::reverse_iterator OpcodeList::rbegin() const {
+  return OpcodeList::reverse_iterator(end());
+}
+OpcodeList::reverse_iterator OpcodeList::rend() const {
+  return OpcodeList::reverse_iterator(begin());
+}
+
 unsigned OpcodeList::getNumOpcodes() const {
   assert(list && "uninitialized list storage");
   return list->numOpcodes;

@@ -38,6 +38,16 @@ class OpcodeList {
 public:
   using ImplType = detail::OpcodeListStorage;
 
+  using value_type = ArrayRef<OpcodeExpr>;
+  using pointer = value_type *;
+  using const_pointer = const value_type *;
+  using reference = value_type &;
+  using const_reference = const value_type &;
+  using iterator = pointer;
+  using const_iterator = const_pointer;
+  using reverse_iterator = std::reverse_iterator<iterator>;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
   constexpr OpcodeList() = default;
   explicit OpcodeList(ImplType *list) : list(list) {}
 
@@ -92,6 +102,12 @@ public:
   //                   unsigned numResultDims, unsigned numResultSyms) const;
 
   friend ::llvm::hash_code hash_value(OpcodeList arg);
+
+  iterator begin() const;
+  iterator end() const;
+
+  reverse_iterator rbegin() const;
+  reverse_iterator rend() const;
 
   /// Methods supporting C API.
   const void *getAsOpaquePointer() const {

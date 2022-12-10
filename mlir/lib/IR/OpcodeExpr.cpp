@@ -922,10 +922,10 @@ OpcodeExpr OpcodeExpr::operator%(OpcodeExpr other) const {
 }
 
 OpcodeExpr OpcodeExpr::compose(OpcodeMap map) const {
-  SmallVector<OpcodeExpr, 8> dimReplacements(map.getResults().begin(),
-                                             map.getResults().end());
-  return replaceDimsAndSymbols(dimReplacements, {});
+  // TODO: Remove
+  return getOpcodeSendLiteralExpr(0, getContext());
 }
+
 raw_ostream &mlir::operator<<(raw_ostream &os, OpcodeExpr expr) {
   expr.print(os);
   return os;

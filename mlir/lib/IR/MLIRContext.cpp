@@ -23,9 +23,9 @@
 #include "mlir/IR/IntegerSet.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/Types.h"
 #include "mlir/IR/OpcodeExpr.h"
 #include "mlir/IR/OpcodeMap.h"
+#include "mlir/IR/Types.h"
 #include "mlir/Support/DebugAction.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -201,7 +201,7 @@ public:
 
   // Affine expression, map and integer set uniquing.
   StorageUniquer affineUniquer;
-  
+
   //===--------------------------------------------------------------------===//
   // Opcode uniquing
   //===--------------------------------------------------------------------===//
@@ -332,8 +332,7 @@ MLIRContext::MLIRContext(const DialectRegistry &registry, Threading setting)
   impl->affineUniquer.registerParametricStorageType<AffineDimExprStorage>();
   impl->affineUniquer.registerParametricStorageType<AffineMapStorage>();
   impl->affineUniquer.registerParametricStorageType<IntegerSetStorage>();
-  
-  
+
   // Register the opcode storage objects with the uniquer.
   impl->opcodeUniquer
       .registerParametricStorageType<OpcodeBinaryOpExprStorage>();
@@ -1032,58 +1031,25 @@ StorageUniquer &MLIRContext::getOpcodeUniquer() {
   return getImpl().opcodeUniquer;
 }
 
-OpcodeMap OpcodeMap::getImpl(unsigned dimCount, unsigned symbolCount,
-                             ArrayRef<OpcodeExpr> results,
-                             MLIRContext *context) {
+OpcodeMap
+OpcodeMap::getImpl(unsigned opcodeCount,
+                   ArrayRef<std::tuple<StringRef, OpcodeList>> opcodes,
+                   MLIRContext *context) {
   auto &impl = context->getImpl();
   auto *storage = impl.opcodeUniquer.get<OpcodeMapStorage>(
-      [&](OpcodeMapStorage *storage) { storage->context = context; }, dimCount,
-      symbolCount, results);
+      [&](OpcodeMapStorage *storage) { storage->context = context; },
+      opcodeCount, opcodes);
   return OpcodeMap(storage);
 }
 
-/// Check whether the arguments passed to the OpcodeMap::get() are consistent.
-/// This method checks whether the highest index of dimensional identifier
-/// present in result expressions is less than `dimCount` and the highest index
-/// of symbolic identifier present in result expressions is less than
-/// `symbolCount`.
-LLVM_ATTRIBUTE_UNUSED static bool
-willBeValidOpcodeMap(unsigned dimCount, unsigned symbolCount,
-                     ArrayRef<OpcodeExpr> results) {
-  int64_t maxDimPosition = -1;
-  int64_t maxSymbolPosition = -1;
-  getAMaxDimAndSymbol(ArrayRef<ArrayRef<OpcodeExpr>>(results), maxDimPosition,
-                     maxSymbolPosition);
-  if ((maxDimPosition >= dimCount) || (maxSymbolPosition >= symbolCount)) {
-    LLVM_DEBUG(
-        llvm::dbgs()
-        << "maximum dimensional identifier position in result expression must "
-           "be less than `dimCount` and maximum symbolic identifier position "
-           "in result expression must be less than `symbolCount`\n");
-    return false;
-  }
-  return true;
-}
-
 OpcodeMap OpcodeMap::get(MLIRContext *context) {
-  return getImpl(/*dimCount=*/0, /*symbolCount=*/0, /*results=*/{}, context);
+  return getImpl(/*opcodeCount=*/0, /*opcodes=*/{}, context);
 }
 
-OpcodeMap OpcodeMap::get(unsigned dimCount, unsigned symbolCount,
+OpcodeMap OpcodeMap::get(unsigned opcodeCount,
+                         ArrayRef<std::tuple<StringRef, OpcodeList>> opcodes,
                          MLIRContext *context) {
-  return getImpl(dimCount, symbolCount, /*results=*/{}, context);
-}
-
-OpcodeMap OpcodeMap::get(unsigned dimCount, unsigned symbolCount,
-                         OpcodeExpr result) {
-  assert(willBeValidOpcodeMap(dimCount, symbolCount, {result}));
-  return getImpl(dimCount, symbolCount, {result}, result.getContext());
-}
-
-OpcodeMap OpcodeMap::get(unsigned dimCount, unsigned symbolCount,
-                         ArrayRef<OpcodeExpr> results, MLIRContext *context) {
-  assert(willBeValidOpcodeMap(dimCount, symbolCount, results));
-  return getImpl(dimCount, symbolCount, results, context);
+  return getImpl(/*opcodeCount=*/opcodeCount, /*opcodes=*/opcodes, context);
 }
 
 //===----------------------------------------------------------------------===//

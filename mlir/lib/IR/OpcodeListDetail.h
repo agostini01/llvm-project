@@ -33,9 +33,7 @@ struct OpcodeListStorage final
   MLIRContext *context;
 
   /// The opcode expressions for this opcode list.
-  ArrayRef<OpcodeExpr> results() const {
-    return {getTrailingObjects<OpcodeExpr>(), numOpcodes};
-  }
+  ArrayRef<OpcodeExpr> results() const;
 
   bool operator==(const KeyTy &key) const {
     return std::get<0>(key) == numOpcodes && std::get<1>(key) == results();
@@ -56,6 +54,10 @@ struct OpcodeListStorage final
     return res;
   }
 };
+
+ArrayRef<OpcodeExpr> OpcodeListStorage::results() const {
+  return {getTrailingObjects<OpcodeExpr>(), numOpcodes};
+}
 
 } // namespace detail
 } // namespace mlir

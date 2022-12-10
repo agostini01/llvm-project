@@ -171,34 +171,13 @@ public:
   /// Eg: input: (d0, d1)[s0] -> (d0, d1 + s0), shift = 2
   ///   returns:    (d0, d1)[s0] -> (d0 + 2, d1 + s0 + 2)
   AffineMap getShiftedAffineMap(AffineMap map, int64_t shift);
-  
-  // Opcode expressions and Opcode maps.
-  OpcodeExpr getOpcodeDimExpr(unsigned position);
-  OpcodeExpr getOpcodeSymbolExpr(unsigned position);
-  OpcodeExpr getOpcodeConstantExpr(int64_t constant);
 
   // Special cases of Opcode maps and integer sets
-  /// Returns a zero result Opcode map with no dimensions or symbols: () -> ().
+  /// Returns an opcode map with no opcodes.
   OpcodeMap getEmptyOpcodeMap();
-  /// Returns a single constant result Opcode map with 0 dimensions and 0
-  /// symbols.  One constant result: () -> (val).
-  OpcodeMap getConstantOpcodeMap(int64_t val);
-  // One dimension id identity map: (i) -> (i).
-  OpcodeMap getADimIdentityMap();
-  // Multi-dimensional identity map: (d0, d1, d2) -> (d0, d1, d2).
-  OpcodeMap getAMultiDimIdentityMap(unsigned rank);
-  // One symbol identity map: ()[s] -> (s).
-  OpcodeMap getASymbolIdentityMap();
 
-  /// Returns a map that shifts its (single) input dimension by 'shift'.
-  /// (d0) -> (d0 + shift)
-  OpcodeMap getSingleDimShiftOpcodeMap(int64_t shift);
-
-  /// Returns an Opcode map that is a translation (shift) of all result
-  /// expressions in 'map' by 'shift'.
-  /// Eg: input: (d0, d1)[s0] -> (d0, d1 + s0), shift = 2
-  ///   returns:    (d0, d1)[s0] -> (d0 + 2, d1 + s0 + 2)
-  OpcodeMap getShiftedOpcodeMap(OpcodeMap map, int64_t shift);
+  /// Returns an opcode map with opcodes.
+  OpcodeMap getOpcodeMap(ArrayRef<std::tuple<StringRef, OpcodeList>> opcodes);
 
 protected:
   MLIRContext *context;

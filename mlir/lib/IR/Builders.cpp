@@ -342,61 +342,14 @@ AffineMap Builder::getShiftedAffineMap(AffineMap map, int64_t shift) {
                         context);
 }
 
-
 //===----------------------------------------------------------------------===//
-// Opcode Expressions, Opcde Maps, and Opcode Flows.
+// Opcode Expressions, OpcodeLists, Opcode Maps
 //===----------------------------------------------------------------------===//
-
-OpcodeExpr Builder::getOpcodeDimExpr(unsigned position) {
-  return mlir::getOpcodeDimExpr(position, context);
-}
-
-OpcodeExpr Builder::getOpcodeSymbolExpr(unsigned position) {
-  return mlir::getOpcodeSymbolExpr(position, context);
-}
-
-OpcodeExpr Builder::getOpcodeConstantExpr(int64_t constant) {
-  return mlir::getOpcodeConstantExpr(constant, context);
-}
 
 OpcodeMap Builder::getEmptyOpcodeMap() { return OpcodeMap::get(context); }
-
-OpcodeMap Builder::getConstantOpcodeMap(int64_t val) {
-  return OpcodeMap::get(/*dimCount=*/0, /*symbolCount=*/0,
-                        getOpcodeConstantExpr(val));
-}
-
-OpcodeMap Builder::getADimIdentityMap() {
-  return OpcodeMap::get(/*dimCount=*/1, /*symbolCount=*/0, getOpcodeDimExpr(0));
-}
-
-OpcodeMap Builder::getAMultiDimIdentityMap(unsigned rank) {
-  SmallVector<OpcodeExpr, 4> dimExprs;
-  dimExprs.reserve(rank);
-  for (unsigned i = 0; i < rank; ++i)
-    dimExprs.push_back(getOpcodeDimExpr(i));
-  return OpcodeMap::get(/*dimCount=*/rank, /*symbolCount=*/0, dimExprs,
-                        context);
-}
-
-OpcodeMap Builder::getASymbolIdentityMap() {
-  return OpcodeMap::get(/*dimCount=*/0, /*symbolCount=*/1,
-                        getOpcodeSymbolExpr(0));
-}
-
-OpcodeMap Builder::getSingleDimShiftOpcodeMap(int64_t shift) {
-  // expr = d0 + shift.
-  auto expr = getOpcodeDimExpr(0) + shift;
-  return OpcodeMap::get(/*dimCount=*/1, /*symbolCount=*/0, expr);
-}
-
-OpcodeMap Builder::getShiftedOpcodeMap(OpcodeMap map, int64_t shift) {
-  SmallVector<OpcodeExpr, 4> shiftedResults;
-  shiftedResults.reserve(map.getNumResults());
-  for (auto resultExpr : map.getResults())
-    shiftedResults.push_back(resultExpr + shift);
-  return OpcodeMap::get(map.getNumDims(), map.getNumSymbols(), shiftedResults,
-                        context);
+OpcodeMap
+Builder::getOpcodeMap(ArrayRef<std::tuple<StringRef, OpcodeList>> opcodes) {
+  return OpcodeMap::get(opcodes.size(), opcodes, context);
 }
 
 //===----------------------------------------------------------------------===//

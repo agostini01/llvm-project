@@ -22,42 +22,40 @@
 namespace mlir {
 namespace detail {
 
+using OpcodeKV = std::tuple<StringRef, OpcodeList>;
+using OpcodeDictArrayRef = ArrayRef<OpcodeKV>;
+
 struct OpcodeMapStorage final
     : public StorageUniquer::BaseStorage,
-      public llvm::TrailingObjects<OpcodeMapStorage, OpcodeExpr> {
+      public llvm::TrailingObjects<OpcodeMapStorage, OpcodeKV> {
   /// The hash key used for uniquing.
-  using KeyTy = std::tuple<unsigned, unsigned, ArrayRef<OpcodeExpr>>;
+  using KeyTy = std::tuple<unsigned, OpcodeDictArrayRef>;
 
-  unsigned numDims; // TODO:: Using numDims as numOpcodes
-  unsigned numSymbols;
-  unsigned numResults;
+  unsigned numOpcodes; // TODO:: Using numDims as numOpcodes
 
   MLIRContext *context;
 
   /// The opcode expressions for this opcode map.
-  ArrayRef<OpcodeExpr> results() const {
-    return {getTrailingObjects<OpcodeExpr>(), numResults};
+  OpcodeDictArrayRef opcodes() const {
+    return {getTrailingObjects<OpcodeKV>(), numOpcodes};
   }
 
   bool operator==(const KeyTy &key) const {
-    return std::get<0>(key) == numDims && std::get<1>(key) == numSymbols &&
-           std::get<2>(key) == results();
+    return std::get<0>(key) == numOpcodes && std::get<1>(key) == opcodes();
   }
 
   // Constructs an OpcodeMapStorage from a key. The context must be set by the
   // caller.
   static OpcodeMapStorage *
   construct(StorageUniquer::StorageAllocator &allocator, const KeyTy &key) {
-    auto results = std::get<2>(key);
+    auto opcodes = std::get<1>(key);
     auto byteSize =
-        OpcodeMapStorage::totalSizeToAlloc<OpcodeExpr>(results.size());
+        OpcodeMapStorage::totalSizeToAlloc<OpcodeKV>(opcodes.size());
     auto *rawMem = allocator.allocate(byteSize, alignof(OpcodeMapStorage));
     auto *res = new (rawMem) OpcodeMapStorage();
-    res->numDims = std::get<0>(key);
-    res->numSymbols = std::get<1>(key);
-    res->numResults = results.size();
-    std::uninitialized_copy(results.begin(), results.end(),
-                            res->getTrailingObjects<OpcodeExpr>());
+    res->numOpcodes = opcodes.size();
+    std::uninitialized_copy(opcodes.begin(), opcodes.end(),
+                            res->getTrailingObjects<OpcodeKV>());
     return res;
   }
 };
