@@ -60,7 +60,7 @@ public:
   ///                | op_send_idx(bare-id)
   ///                | op_recv(bare-id)
   ParseResult parseOpcodeMapInline(OpcodeMap &map);
-  ParseResult parseOpcodeDict(NamedAttrList &attributes);
+  ParseResult parseOpcodeDict();
 
 private:
   ParseResult parseSymbol();
@@ -79,7 +79,7 @@ private:
 private:
   function_ref<ParseResult(bool)> parseElement;
   unsigned numOpcodes;
-  SmallVector<std::pair<StringRef, OpcodeList>, 4> opcodeAndExprs;
+  SmallVector<std::pair<StringRef, OpcodeList>, 4> opcodesAndExprs;
 };
 } // namespace
 
@@ -112,11 +112,8 @@ private:
 /// values.
 ParseResult OpcodeParser::parseOpcodeMapInline(OpcodeMap &map) {
 
-  // NamedAttrList will be transformed into the DictionaryAttr
-  NamedAttrList elements;
-
   // TODO: Final condition for parsing success
-  if (parseOpcodeDict(elements)) {
+  if (parseOpcodeDict()) {
     // llvm::errs()<< "Failure on parseOpcodeMapInline()";
     return failure();
   }
@@ -164,10 +161,13 @@ OpcodeParser::parseRecvExpr(Token::Kind expectedToken,
 ///                    | `{` attribute-entry (`,` attribute-entry)* `}`
 ///   attribute-entry ::= (bare-id | string-literal) `=` attribute-value
 ///
-ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
+ParseResult OpcodeParser::parseOpcodeDict() {
   llvm::SmallDenseSet<StringAttr> seenKeys;
 
+  // Parse one key-value pair.
   auto parseKeyValue = [&]() -> ParseResult {
+    // Holds the list of expressions for the attribute value if successful.
+    SmallVector<OpcodeExpr, 8> exprs;
     // The name of an attribute can either be a bare identifier, or a string.
     Optional<StringAttr> nameId;
     if (getToken().is(Token::string))
@@ -189,7 +189,6 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
              << nameId->getValue() << "' entry in opcode_map'";
     }
 
-    SmallVector<OpcodeExpr, 8> exprs;
     auto parseValue = [&]() -> ParseResult {
       // Function to consume tokens inside parenthesis
       auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
@@ -236,22 +235,25 @@ ParseResult OpcodeParser::parseOpcodeDict(NamedAttrList &attributes) {
     //               | send_dim(bare-id)
     //               | send_idx(bare-id)
     //               | recv(bare-id)
-
     if (parseCommaSeparatedList(Delimiter::Square, parseValue,
                                 " in opcode_map dictionary"))
       return failure();
 
-    // Save attrs as OpcodeList
-    // TODO: No OpcodeList get yet!
-    // attributes.push_back({*nameId, OpcodeList::get(exprs, getContext())});
+    // At this point we have 1 key and 1 value parsed, saved them.
+    opcodesAndExprs.push_back(std::pair<StringRef, OpcodeList>(
+        *nameId, OpcodeList::get(exprs.size(), exprs, getContext())));
+    numOpcodes++;
 
-    // auto attr = parseAttribute();
-    // if (!attr)
-    //   return failure();
-    // attributes.push_back({*nameId, attr});
+    // Print the position and parsed opcode list
+    llvm::errs() << "numOpcodes: " << numOpcodes << "\n"
+                 << "Opcode list: "
+                 << OpcodeList::get(exprs.size(), exprs, getContext()) << "\n";
+
     return success();
   };
 
+  // Parse all key-value pairs.
+  // if success, opcodesAndExprs will be populated with the parsed k,v pairs
   if (parseCommaSeparatedList(Delimiter::LessGreater, parseKeyValue,
                               " in opcode_map dictionary"))
     return failure();

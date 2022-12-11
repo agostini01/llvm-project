@@ -1,7 +1,7 @@
 //===- OpcodeListDetail.h - MLIR Opcode List details Class ------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license informetion.
+// See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
@@ -28,15 +28,17 @@ struct OpcodeListStorage final
   /// The hash key used for uniquing.
   using KeyTy = std::tuple<unsigned, ArrayRef<OpcodeExpr>>;
 
-  unsigned numOpcodes; // TODO:: Using numDims as numOpcodes
+  unsigned numActions;
 
   MLIRContext *context;
 
   /// The opcode expressions for this opcode list.
-  ArrayRef<OpcodeExpr> results() const;
+  ArrayRef<OpcodeExpr> results() const {
+    return {getTrailingObjects<OpcodeExpr>(), numActions};
+  }
 
   bool operator==(const KeyTy &key) const {
-    return std::get<0>(key) == numOpcodes && std::get<1>(key) == results();
+    return std::get<0>(key) == numActions && std::get<1>(key) == results();
   }
 
   // Constructs an OpcodeListStorage from a key. The context must be set by the
@@ -48,16 +50,12 @@ struct OpcodeListStorage final
         OpcodeListStorage::totalSizeToAlloc<OpcodeExpr>(results.size());
     auto *rawMem = allocator.allocate(byteSize, alignof(OpcodeListStorage));
     auto *res = new (rawMem) OpcodeListStorage();
-    res->numOpcodes = results.size();
+    res->numActions = results.size();
     std::uninitialized_copy(results.begin(), results.end(),
                             res->getTrailingObjects<OpcodeExpr>());
     return res;
   }
 };
-
-ArrayRef<OpcodeExpr> OpcodeListStorage::results() const {
-  return {getTrailingObjects<OpcodeExpr>(), numOpcodes};
-}
 
 } // namespace detail
 } // namespace mlir

@@ -21,16 +21,16 @@ using namespace mlir;
 
 MLIRContext *OpcodeList::getContext() const { return list->context; }
 
-bool OpcodeList::isEmpty() const { return getNumOpcodes() == 0; }
+bool OpcodeList::isEmpty() const { return getNumActions() == 0; }
 
 OpcodeList::iterator OpcodeList::begin() const {
   // Warning: is this alive long enough?
-  auto opcodes = list->results();
-  return &opcodes;
+  auto actions = list->results();
+  return &actions;
 }
 OpcodeList::iterator OpcodeList::end() const {
-  auto opcodes = list->results();
-  return &opcodes + list->numOpcodes;
+  auto actions = list->results();
+  return &actions + list->numActions;
 }
 
 OpcodeList::reverse_iterator OpcodeList::rbegin() const {
@@ -40,42 +40,42 @@ OpcodeList::reverse_iterator OpcodeList::rend() const {
   return OpcodeList::reverse_iterator(begin());
 }
 
-unsigned OpcodeList::getNumOpcodes() const {
+unsigned OpcodeList::getNumActions() const {
   assert(list && "uninitialized list storage");
-  return list->numOpcodes;
+  return list->numActions;
 }
 
-ArrayRef<OpcodeExpr> OpcodeList::getOpcodes() const {
+ArrayRef<OpcodeExpr> OpcodeList::getActions() const {
   assert(list && "uninitialized list storage");
   return list->results(); // TODO: Results should be renamed
 }
-OpcodeExpr OpcodeList::getOpcode(unsigned idx) const {
-  return getOpcodes()[idx];
+OpcodeExpr OpcodeList::getAction(unsigned idx) const {
+  return getActions()[idx];
 }
 
 /// Walk all of the OpcodeExpr's in this listping. Each node in an expression
 /// tree is visited in postorder.
 void OpcodeList::walkExprs(
     llvm::function_ref<void(OpcodeExpr)> callback) const {
-  for (auto expr : getOpcodes())
+  for (auto expr : getActions())
     expr.walk(callback);
 }
 
 OpcodeList mlir::concatOpcodeLists(ArrayRef<OpcodeList> lists) {
-  unsigned newNumResults = 0, numDims = 0, numSymbols = 0;
-  for (auto m : lists)
-    newNumResults += m.getNumOpcodes();
-  SmallVector<OpcodeExpr, 8> results;
-  results.reserve(newNumResults);
-  for (auto m : lists) {
-    for (auto res : m.getOpcodes()) {
-      // TODO: must push_back the arriving expressions saved in the lists
-      // TODO: this requires a different function other than shiftSymbols
-      results.push_back(res.shiftSymbols(0, numSymbols));
-    }
-  }
-  return OpcodeList::get(numDims, numSymbols, results,
-                         lists.front().getContext());
+  // TODO: Implement this
+  // unsigned newNumResults = 0, numActions = 0;
+  // for (auto m : lists)
+  //   newNumResults += m.getNumActions();
+  // SmallVector<OpcodeExpr, 8> results;
+  // results.reserve(newNumResults);
+  // for (auto m : lists) {
+  //   for (auto res : m.getActions()) {
+  //     // TODO: must push_back the arriving expressions saved in the lists
+  //     // TODO: this requires a different function other than shiftSymbols
+  //     results.push_back(res.shiftSymbols(0, numActions));
+  //   }
+  // }
+  return OpcodeList::get(lists.front().getContext());
 }
 
 // //===----------------------------------------------------------------------===//

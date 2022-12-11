@@ -51,13 +51,12 @@ public:
   constexpr OpcodeList() = default;
   explicit OpcodeList(ImplType *list) : list(list) {}
 
-  /// Returns a zero result opcode list with no dimensions or symbols: () -> ().
+  /// Returns an empty opcode list
   static OpcodeList get(MLIRContext *context);
 
-  /// Returns an opcode list with `dimCount` dimensions and `symbolCount`
-  /// listping to the given results.
-  static OpcodeList get(unsigned opcodeCount, unsigned symbolCount,
-                        ArrayRef<OpcodeExpr> results, MLIRContext *context);
+  /// Returns an opcode list with `actionsCount` internal expressions
+  static OpcodeList get(unsigned actionsCount, ArrayRef<OpcodeExpr> exprs,
+                        MLIRContext *context);
 
   MLIRContext *getContext() const;
 
@@ -72,10 +71,10 @@ public:
   void print(raw_ostream &os) const;
   void dump() const;
 
-  unsigned getNumOpcodes() const;
+  unsigned getNumActions() const;
 
-  ArrayRef<OpcodeExpr> getOpcodes() const;
-  OpcodeExpr getOpcode(unsigned idx) const;
+  ArrayRef<OpcodeExpr> getActions() const;
+  OpcodeExpr getAction(unsigned idx) const;
 
   /// Walk all of the OpcodeExpr's in this listping. Each node in an expression
   /// tree is visited in postorder.
@@ -121,8 +120,8 @@ public:
 private:
   ImplType *list{nullptr};
 
-  static OpcodeList getImpl(unsigned dimCount, unsigned symbolCount,
-                            ArrayRef<OpcodeExpr> results, MLIRContext *context);
+  static OpcodeList getImpl(unsigned actionCount, ArrayRef<OpcodeExpr> exprs,
+                            MLIRContext *context);
 };
 
 // Make OpcodeExpr hashable.

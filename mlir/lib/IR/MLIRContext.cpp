@@ -12,6 +12,7 @@
 #include "AttributeDetail.h"
 #include "IntegerSetDetail.h"
 #include "OpcodeExprDetail.h"
+#include "OpcodeListDetail.h"
 #include "OpcodeMapDetail.h"
 #include "TypeDetail.h"
 #include "mlir/IR/AffineExpr.h"
@@ -24,6 +25,7 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/OpcodeExpr.h"
+#include "mlir/IR/OpcodeList.h"
 #include "mlir/IR/OpcodeMap.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Support/DebugAction.h"
@@ -347,6 +349,7 @@ MLIRContext::MLIRContext(const DialectRegistry &registry, Threading setting)
       .registerParametricStorageType<OpcodeSendIdPosExprStorage>();
   impl->opcodeUniquer
       .registerParametricStorageType<OpcodeSendLiteralExprStorage>();
+  impl->opcodeUniquer.registerParametricStorageType<OpcodeListStorage>();
 }
 
 MLIRContext::~MLIRContext() = default;
@@ -1050,6 +1053,25 @@ OpcodeMap OpcodeMap::get(unsigned opcodeCount,
                          ArrayRef<std::tuple<StringRef, OpcodeList>> opcodes,
                          MLIRContext *context) {
   return getImpl(/*opcodeCount=*/opcodeCount, /*opcodes=*/opcodes, context);
+}
+
+OpcodeList OpcodeList::getImpl(unsigned actionsCount,
+                               ArrayRef<OpcodeExpr> exprs,
+                               MLIRContext *context) {
+  auto &impl = context->getImpl();
+  auto *storage = impl.opcodeUniquer.get<OpcodeListStorage>(
+      [&](OpcodeListStorage *storage) { storage->context = context; },
+      actionsCount, exprs);
+  return OpcodeList(storage);
+}
+
+OpcodeList OpcodeList::get(MLIRContext *context) {
+  return getImpl(/*actionsCount=*/0, /*opcodes=*/{}, context);
+}
+
+OpcodeList OpcodeList::get(unsigned actionsCount, ArrayRef<OpcodeExpr> exprs,
+                           MLIRContext *context) {
+  return getImpl(/*actionsCount=*/actionsCount, /*actions=*/exprs, context);
 }
 
 //===----------------------------------------------------------------------===//

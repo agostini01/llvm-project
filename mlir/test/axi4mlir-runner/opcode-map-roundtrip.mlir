@@ -12,6 +12,7 @@
   s0s1r2 = [op_send(0), op_send(1), op_send(2), op_recv(2)],
   reset = [op_send(0)],
   s0_dim = [op_send_literal(30), op_send_dim(2)],
+  test = [op_send_literal(30), op_send_literal(31)],
   s0_idxs = [op_send_literal(30), op_send_idx(2)]
 >
 

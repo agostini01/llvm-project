@@ -2375,20 +2375,21 @@ void AsmPrinter::Impl::printAffineMap(AffineMap map) {
   os << ')';
 }
 
-//Function to print the OpcodeExpr
+// Function to print the OpcodeExpr
 void AsmPrinter::Impl::printOpcodeExpr(OpcodeExpr expr) {
   OpcodeExprKind kind = expr.getKind();
   switch (kind) {
   case OpcodeExprKind::Send: {
-    os<<"send("<<expr.dyn_cast<OpcodeSendIdExpr>().getId()<<")";
+    os << "send(" << expr.dyn_cast<OpcodeSendIdExpr>().getId() << ")";
     break;
   }
   case OpcodeExprKind::Recv: {
-    os<<"recv("<<expr.dyn_cast<OpcodeRecvIdExpr>().getId()<<")";
+    os << "recv(" << expr.dyn_cast<OpcodeRecvIdExpr>().getId() << ")";
     break;
   }
   case OpcodeExprKind::SendLiteral: {
-    os<<"send_literal("<<expr.dyn_cast<OpcodeSendLiteralExpr>().getValue()<<")";
+    os << "send_literal(" << expr.dyn_cast<OpcodeSendLiteralExpr>().getValue()
+       << ")";
     break;
   }
   // TODO: Implement Handle SendDim SendIdx
@@ -2401,7 +2402,7 @@ void AsmPrinter::Impl::printOpcodeExpr(OpcodeExpr expr) {
 
 void AsmPrinter::Impl::printOpcodeList(OpcodeList list) {
   os << "[";
-  interleaveComma(list.getOpcodes(),
+  interleaveComma(list.getActions(),
                   [&](OpcodeExpr expr) { printOpcodeExpr(expr); });
   os << "]";
 }
@@ -2919,7 +2920,6 @@ void OpcodeMap::print(raw_ostream &os) const {
   }
   AsmPrinter::Impl(os).printOpcodeMap(*this);
 }
-
 
 void Value::print(raw_ostream &os) {
   if (!impl) {
