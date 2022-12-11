@@ -64,7 +64,7 @@
 // CHECK:           reset = [op_send(0)],
 // CHECK:           s0_dim = [op_send_literal(30), op_send_dim(2)],
 // CHECK:           s0_idxs = [op_send_literal(30), op_send_idx(2)]
-// CHECK:         >,
+// CHECK:         >
 func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   linalg.generic #matmul_trait

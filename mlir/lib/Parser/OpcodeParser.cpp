@@ -79,7 +79,7 @@ private:
 private:
   function_ref<ParseResult(bool)> parseElement;
   unsigned numOpcodes;
-  SmallVector<std::pair<StringRef, OpcodeList>, 4> opcodesAndExprs;
+  SmallVector<std::tuple<StringRef, OpcodeList>, 4> opcodesAndExprs;
 };
 } // namespace
 
@@ -101,7 +101,7 @@ private:
 //   return expr;
 // }
 
-/// Parses a comma separated list of opcode entries
+/// Parses a comma separated list of opcode entries and updates map.
 /// opcode_dict  ::= `opcode_map` `<` opcode-entry (`,` opcode-entry)* `>`
 ///
 /// OpcodeMap's underlying data structure is a
@@ -112,18 +112,11 @@ private:
 /// values.
 ParseResult OpcodeParser::parseOpcodeMapInline(OpcodeMap &map) {
 
-  // TODO: Final condition for parsing success
   if (parseOpcodeDict()) {
-    // llvm::errs()<< "Failure on parseOpcodeMapInline()";
     return failure();
   }
 
-  map = OpcodeMap::get(0, {}, getContext());
-  // TODO: Transform NamedAttrList into DictionaryAttr and use it to set the
-  // OpcodeMap's underlying data structure.
-  // map = OpcodeMap::get(elements.getDictionary(getContext()));
-
-  // llvm::errs()<< "Success on parseOpcodeMapInline()";
+  map = OpcodeMap::get(numOpcodes, opcodesAndExprs, getContext());
   return success();
 }
 
@@ -134,7 +127,7 @@ OpcodeParser::parseSendExpr(Token::Kind expectedToken,
   if (parseToken(Token::l_paren, "expected '('"))
     return failure();
   if (getToken().is(Token::r_paren))
-    return (emitError("no identifier inside parentheses"), failure());
+    return (emitError("no value inside parentheses"), failure());
   parseElementFn();
   if (parseToken(Token::r_paren, "expected ')'"))
     return failure();
@@ -194,9 +187,29 @@ ParseResult OpcodeParser::parseOpcodeDict() {
       auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
       switch (getToken().getKind()) {
       case Token::kw_op_recv: {
+        auto fn = [&]() -> ParseResult {
+          if (getToken().is(Token::integer)) {
+            Attribute attr = parseAttribute();
+            unsigned id = attr.dyn_cast<IntegerAttr>().getInt();
+            exprs.push_back(getOpcodeRecvExpr(id, getContext()));
+          } else {
+            return emitError("expected unsigned integer literal");
+          }
+          return success();
+        };
         return parseRecvExpr(Token::kw_op_recv, fn);
       }
       case Token::kw_op_send: {
+        auto fn = [&]() -> ParseResult {
+          if (getToken().is(Token::integer)) {
+            Attribute attr = parseAttribute();
+            unsigned id = attr.dyn_cast<IntegerAttr>().getInt();
+            exprs.push_back(getOpcodeSendExpr(id, getContext()));
+          } else {
+            return emitError("expected unsigned integer literal");
+          }
+          return success();
+        };
         return parseSendExpr(Token::kw_op_send, fn);
       }
       case Token::kw_op_send_literal: {
@@ -205,9 +218,6 @@ ParseResult OpcodeParser::parseOpcodeDict() {
             Attribute attr = parseAttribute();
             int value = attr.dyn_cast<IntegerAttr>().getInt();
             exprs.push_back(getOpcodeSendLiteralExpr(value, getContext()));
-            llvm::errs() << "Parsed expression: "
-                         << getOpcodeSendLiteralExpr(value, getContext())
-                         << "\n";
           } else {
             return emitError("expected integer literal");
           }
@@ -216,9 +226,33 @@ ParseResult OpcodeParser::parseOpcodeDict() {
         return parseSendExpr(Token::kw_op_send_literal, fn);
       }
       case Token::kw_op_send_dim: {
+        auto fn = [&]() -> ParseResult {
+          if (getToken().is(Token::integer)) {
+            Attribute attr = parseAttribute();
+            unsigned id = attr.dyn_cast<IntegerAttr>().getInt();
+            // TODO: parse position here.
+            exprs.push_back(
+                getOpcodeSendDimExpr(id, /*TODO:pos*/ 0, getContext()));
+          } else {
+            return emitError("expected unsigned integer literal");
+          }
+          return success();
+        };
         return parseSendExpr(Token::kw_op_send_dim, fn);
       }
       case Token::kw_op_send_idx: {
+        auto fn = [&]() -> ParseResult {
+          if (getToken().is(Token::integer)) {
+            Attribute attr = parseAttribute();
+            unsigned id = attr.dyn_cast<IntegerAttr>().getInt();
+            // TODO: parse position here.
+            exprs.push_back(
+                getOpcodeSendIdxExpr(id, /*TODO:pos*/ 0, getContext()));
+          } else {
+            return emitError("expected unsigned integer literal");
+          }
+          return success();
+        };
         return parseSendExpr(Token::kw_op_send_idx, fn);
       }
       default:
@@ -240,14 +274,9 @@ ParseResult OpcodeParser::parseOpcodeDict() {
       return failure();
 
     // At this point we have 1 key and 1 value parsed, saved them.
-    opcodesAndExprs.push_back(std::pair<StringRef, OpcodeList>(
+    opcodesAndExprs.push_back(std::tuple<StringRef, OpcodeList>(
         *nameId, OpcodeList::get(exprs.size(), exprs, getContext())));
     numOpcodes++;
-
-    // Print the position and parsed opcode list
-    llvm::errs() << "numOpcodes: " << numOpcodes << "\n"
-                 << "Opcode list: "
-                 << OpcodeList::get(exprs.size(), exprs, getContext()) << "\n";
 
     return success();
   };

@@ -557,6 +557,7 @@ OpcodeExpr mlir::getOpcodeConstantExpr(int64_t constant, MLIRContext *context) {
   return uniquer.get<OpcodeConstantExprStorage>(assignCtx, constant);
 }
 
+// Return a OpcodeExpr supporting the OpcodeExprKind::SendLiteral.
 OpcodeExpr mlir::getOpcodeSendLiteralExpr(int literal, MLIRContext *context) {
   auto assignCtx = [context](OpcodeSendLiteralExprStorage *storage) {
     storage->context = context;
@@ -565,6 +566,48 @@ OpcodeExpr mlir::getOpcodeSendLiteralExpr(int literal, MLIRContext *context) {
   StorageUniquer &uniquer = context->getOpcodeUniquer();
   return uniquer.get<OpcodeSendLiteralExprStorage>(
       assignCtx, static_cast<unsigned>(OpcodeExprKind::SendLiteral), literal);
+}
+
+OpcodeExpr mlir::getOpcodeSendExpr(unsigned id, MLIRContext *context) {
+  auto assignCtx = [context](OpcodeSendRecvIdExprStorage *storage) {
+    storage->context = context;
+  };
+
+  StorageUniquer &uniquer = context->getOpcodeUniquer();
+  return uniquer.get<OpcodeSendRecvIdExprStorage>(
+      assignCtx, static_cast<unsigned>(OpcodeExprKind::Send), id);
+}
+
+OpcodeExpr mlir::getOpcodeRecvExpr(unsigned id, MLIRContext *context) {
+  auto assignCtx = [context](OpcodeSendRecvIdExprStorage *storage) {
+    storage->context = context;
+  };
+
+  StorageUniquer &uniquer = context->getOpcodeUniquer();
+  return uniquer.get<OpcodeSendRecvIdExprStorage>(
+      assignCtx, static_cast<unsigned>(OpcodeExprKind::Recv), id);
+}
+
+OpcodeExpr mlir::getOpcodeSendDimExpr(unsigned id, unsigned pos,
+                                      MLIRContext *context) {
+  auto assignCtx = [context](OpcodeSendIdPosExprStorage *storage) {
+    storage->context = context;
+  };
+
+  StorageUniquer &uniquer = context->getOpcodeUniquer();
+  return uniquer.get<OpcodeSendIdPosExprStorage>(
+      assignCtx, static_cast<unsigned>(OpcodeExprKind::SendDim), id, pos);
+}
+
+OpcodeExpr mlir::getOpcodeSendIdxExpr(unsigned id, unsigned pos,
+                                      MLIRContext *context) {
+  auto assignCtx = [context](OpcodeSendIdPosExprStorage *storage) {
+    storage->context = context;
+  };
+
+  StorageUniquer &uniquer = context->getOpcodeUniquer();
+  return uniquer.get<OpcodeSendIdPosExprStorage>(
+      assignCtx, static_cast<unsigned>(OpcodeExprKind::SendIdx), id, pos);
 }
 
 /// Simplify add expression. Return nullptr if it can't be simplified.

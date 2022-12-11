@@ -2380,21 +2380,30 @@ void AsmPrinter::Impl::printOpcodeExpr(OpcodeExpr expr) {
   OpcodeExprKind kind = expr.getKind();
   switch (kind) {
   case OpcodeExprKind::Send: {
-    os << "send(" << expr.dyn_cast<OpcodeSendIdExpr>().getId() << ")";
+    os << "op_send(" << expr.dyn_cast<OpcodeSendIdExpr>().getId() << ")";
     break;
   }
   case OpcodeExprKind::Recv: {
-    os << "recv(" << expr.dyn_cast<OpcodeRecvIdExpr>().getId() << ")";
+    os << "op_recv(" << expr.dyn_cast<OpcodeRecvIdExpr>().getId() << ")";
     break;
   }
   case OpcodeExprKind::SendLiteral: {
-    os << "send_literal(" << expr.dyn_cast<OpcodeSendLiteralExpr>().getValue()
+    os << "op_send_literal(" << expr.dyn_cast<OpcodeSendLiteralExpr>().getValue()
        << ")";
     break;
   }
-  // TODO: Implement Handle SendDim SendIdx
+  case OpcodeExprKind::SendDim: {
+    // TODO: send_dim should be extended with a position. e.g. send_dim(0, 0)
+    os << "op_send_dim(" << expr.dyn_cast<OpcodeSendDimExpr>().getId() << ")";
+    break;
+  }
+  case OpcodeExprKind::SendIdx: {
+    // TODO: send_idx should be extended with a position. e.g. send_idx(0, 0)
+    os << "op_send_idx(" << expr.dyn_cast<OpcodeSendIdxExpr>().getId() << ")";
+    break;
+  }
   default:
-    llvm_unreachable("Unknown OpcodeExprKind");
+    llvm_unreachable("Unknown OpcodeExprKind during opcode_map printing.");
     break;
   }
   return;
@@ -2409,8 +2418,10 @@ void AsmPrinter::Impl::printOpcodeList(OpcodeList list) {
 
 void AsmPrinter::Impl::printOpcodeMap(OpcodeMap map) {
   // Dimension identifiers.
-  // TODO: Implement printer
-  os << "s0 = [send(0)]";
+  interleaveComma(map.getOpcodes(), [&](std::tuple<StringRef, OpcodeList> kv) {
+    os << std::get<0>(kv) << " = ";
+    printOpcodeList(std::get<1>(kv));
+  });
 }
 
 void AsmPrinter::Impl::printIntegerSet(IntegerSet set) {

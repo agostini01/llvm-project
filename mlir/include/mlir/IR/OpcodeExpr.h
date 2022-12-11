@@ -306,7 +306,12 @@ OpcodeExpr getOpcodeBinaryOpExpr(OpcodeExprKind kind, OpcodeExpr lhs,
                                  OpcodeExpr rhs);
 
 OpcodeExpr getOpcodeSendExpr(unsigned id, MLIRContext *context);
+OpcodeExpr getOpcodeRecvExpr(unsigned id, MLIRContext *context);
 OpcodeExpr getOpcodeSendLiteralExpr(int literal, MLIRContext *context);
+OpcodeExpr getOpcodeSendDimExpr(unsigned id, unsigned position,
+                                MLIRContext *context);
+OpcodeExpr getOpcodeSendIdxExpr(unsigned id, unsigned position,
+                                MLIRContext *context);
 
 /// Constructs an affine expression from a flat ArrayRef. If there are local
 /// identifiers (neither dimensional nor symbolic) that appear in the sum of
