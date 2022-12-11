@@ -60,6 +60,23 @@ std::tuple<StringRef, OpcodeList> OpcodeMap::getOpcode(unsigned idx) const {
   return getOpcodes()[idx];
 }
 
+OpcodeList OpcodeMap::getOpcodeList(StringRef key) const {
+  for (auto kv : getOpcodes())
+    if (std::get<0>(kv) == key)
+      return std::get<1>(kv);
+  return {};
+}
+
+unsigned OpcodeMap::getOpcodeListPosition(StringRef key) const {
+  unsigned idx = 0;
+  for (auto kv : getOpcodes()) {
+    if (std::get<0>(kv) == key)
+      return idx;
+    ++idx;
+  }
+  return -1;
+}
+
 /// Walk all of the OpcodeExpr's in this mapping.
 void OpcodeMap::walkExprs(llvm::function_ref<void(OpcodeExpr)> callback) const {
   for (auto kv : getOpcodes())
@@ -156,7 +173,7 @@ OpcodeMap mlir::concatOpcodeMaps(ArrayRef<OpcodeMap> maps) {
 //   return false;
 // }
 
-// // Simplifies the result affine expressions of this map. The expressions 
+// // Simplifies the result affine expressions of this map. The expressions
 // // have to  be pure for the simplification implemented.
 // void MutableOpcodeMap::simplify() {
 //   // Simplify each of the results if possible.

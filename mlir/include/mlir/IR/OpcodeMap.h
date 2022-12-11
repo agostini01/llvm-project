@@ -75,8 +75,8 @@ public:
   unsigned getNumOpcodes() const;
   ArrayRef<std::tuple<StringRef, OpcodeList>> getOpcodes() const;
   std::tuple<StringRef, OpcodeList> getOpcode(unsigned idx) const;
-  // TODO: Get opcodes should actually take a key representing the opcode name.
   OpcodeList getOpcodeList(StringRef key) const;
+  unsigned getOpcodeListPosition(StringRef key) const;
 
   void walkExprs(llvm::function_ref<void(OpcodeExpr)> callback) const;
 
