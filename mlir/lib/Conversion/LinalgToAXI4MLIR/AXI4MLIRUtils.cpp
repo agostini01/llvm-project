@@ -192,6 +192,6 @@ void AccelTransformationOptions::dump() const {
                << "anchorFuncName\t\t " << anchorFuncName << "\n"
                << "anchorOpName\t\t " << anchorOpName << "\n"
                << "opcodeMap\t\t " << opcodeMap << "\n"
-               << "initOpcodes\t\t " << initOpcodes << "\n"
+               << "initFlow\t\t " << initFlow << "\n"
                << "opcodeFlow\t\t " << opcodeFlow << "\n";
 }

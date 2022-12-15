@@ -141,11 +141,10 @@ static void emitCall(ImplicitLocOpBuilder &builder, Operation *ref,
   builder.create<LLVM::CallOp>(TypeRange(), SymbolRefAttr::get(ref), params);
 }
 
-
 /// This should only be used on MatmulOps that have been generalized.
 /// It has Matmul attributes in mind such as support for only 3 loops.
 static void generateRuntime(linalg::GenericOp op,
-                         const AccelTransformationOptions &options) {
+                            const AccelTransformationOptions &options) {
   auto b = ImplicitLocOpBuilder(op.getLoc(), op);
   Type myType = b.getI32Type();
   Type intTy = b.getI32Type();
@@ -275,7 +274,7 @@ struct ConvertMatmulToAXI4MLIRPass
     // this->anchorFuncName = options.anchorFuncName;
     // this->anchorOpName = options.anchorOpName;
     // this->opcodeMap = options.opcodeMap;
-    // this->initOpcodes = options.initOpcodes;
+    // this->initFlow = options.initFlow;
     // this->opcodeFlow = options.opcodeFlow;
   }
 
@@ -300,7 +299,7 @@ struct ConvertMatmulToAXI4MLIRPass
     // options.anchorFuncName = this->anchorFuncName;
     // options.anchorOpName = this->anchorOpName;
     // options.opcodeMap = this->opcodeMap;
-    // options.initOpcodes = this->initOpcodes;
+    // options.initFlow = this->initFlow;
     // options.opcodeFlow = this->opcodeFlow;
   }
 

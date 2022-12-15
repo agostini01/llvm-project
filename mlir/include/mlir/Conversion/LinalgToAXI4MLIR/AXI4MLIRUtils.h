@@ -42,7 +42,7 @@ struct AccelTransformationOptions {
   
   /// Opcode information
   std::string opcodeMap;
-  std::string initOpcodes;
+  std::string initFlow;
   std::string opcodeFlow;
 
 public:

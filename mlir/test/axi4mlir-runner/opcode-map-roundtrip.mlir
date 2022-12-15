@@ -33,17 +33,17 @@
     s2 = [op_send(1)],
     r2 = [op_recv(2)],
     s0s1r2 = [op_send(0), op_send(1), op_send(2), op_recv(2)],
-    reset = [op_send(0)],
-    s0_dim = [op_send_literal(30), op_send_dim(2)],
-    s0_idxs = [op_send_literal(30), op_send_idx(2)]
+    reset = [op_send_literal(0)],
+    sdim = [op_send_literal(30), op_send_dim(2)],
+    sidx = [op_send_literal(31), op_send_idx(2)]
   >,
 
   // accel_opcode_flow_str = "(s0 (s1 s2 r2))",
   // accel_flow_pattern= flow_pattern < (s0 (s0_s1_r2)+) >,
   // accel_flow_pattern= flow_pattern < accel_opcode_map, (s0 (s0_s1_r2)+) >,
 
-  // accel_init_opcodes_str = "(s0 (s1 s2 r2))",
-  // accel_init_opcodes = init_opcodes < (reset) >,
+  // accel_init_pattern_str = "reset sdim",
+  // accel_init_pattern = init_pattern < reset sdim >,
 
   // Original generic information
   iterator_types = ["parallel", "parallel", "reduction"],
@@ -61,9 +61,9 @@
 // CHECK:           s2 = [op_send(1)],
 // CHECK:           r2 = [op_recv(2)],
 // CHECK:           s0s1r2 = [op_send(0), op_send(1), op_send(2), op_recv(2)],
-// CHECK:           reset = [op_send(0)],
-// CHECK:           s0_dim = [op_send_literal(30), op_send_dim(2)],
-// CHECK:           s0_idxs = [op_send_literal(30), op_send_idx(2)]
+// CHECK:           reset = [op_send_literal(0)],
+// CHECK:           sdim = [op_send_literal(30), op_send_dim(2)],
+// CHECK:           sidx = [op_send_literal(31), op_send_idx(2)]
 // CHECK:         >
 func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 

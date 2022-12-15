@@ -52,10 +52,10 @@ public:
   ///
   /// opcode_entry ::= (bare-id | string-literal) `=` opcode_list
   ///
-  /// opcode_list  ::= `[` opcode_expr (`,` opcode_expr)* `]
+  /// opcode_list  ::= `[` opcode_expr (`,` opcode_expr)* `]`
   ///
   /// opcode_expr  ::= op_send(bare-id)
-  /// .              | op_send_literal(integer-literal)
+  ///                | op_send_literal(integer-literal)
   ///                | op_send_dim(bare-id)
   ///                | op_send_idx(bare-id)
   ///                | op_recv(bare-id)
@@ -183,8 +183,6 @@ ParseResult OpcodeParser::parseOpcodeDict() {
     }
 
     auto parseValue = [&]() -> ParseResult {
-      // Function to consume tokens inside parenthesis
-      auto fn = [&]() -> ParseResult { return consumeToken(), success(); };
       switch (getToken().getKind()) {
       case Token::kw_op_recv: {
         auto fn = [&]() -> ParseResult {
@@ -299,7 +297,6 @@ ParseResult OpcodeParser::parseOpcodeDict() {
 ParseResult Parser::parseOpcodeMapReference(OpcodeMap &map) {
 
   if (OpcodeParser(state).parseOpcodeMapInline(map)) {
-    // llvm::errs()<< "Failed parseOpcodeMapReference()";
     return failure();
   }
 

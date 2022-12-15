@@ -1,6 +1,6 @@
 // RUN: mlir-opt %s --test-generic-to-accel | FileCheck %s
-// RUN: mlir-opt %s --test-generic-to-accel=anchor-op=linalg.matmul | FileCheck %s --check-prefix=ANCHOR
-// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul flow-cpu-accumulation=true' | FileCheck %s --check-prefix=CPUACC
+// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul opcode-map="opcode_map<s0=[op_send(0)]>"' | FileCheck %s --check-prefix=ANCHOR
+// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul flow-cpu-accumulation=true opcode-map="opcode_map<s0=[op_send(0)]>"' | FileCheck %s --check-prefix=CPUACC
 
 #matmul_trait = {
   __accel_transform__="ACCEL",

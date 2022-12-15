@@ -26,6 +26,7 @@
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/DialectConversion.h"
 
@@ -46,10 +47,28 @@ const StringLiteral kAccel_opcode_flow_str = "accel_opcode_flow_str";
 const StringLiteral kAccel_loop_permutation = "accel_loop_permutation";
 const StringLiteral kAccel_accel_tile_size = "accel_accel_tile_size";
 const StringLiteral kAccel_tile_sizes = "accel_tile_sizes";
-const StringLiteral kAccel_init_opcodes_str = "accel_init_opcodes_str";
+const StringLiteral kAccel_init_flow = "accel_init_flow";
+const StringLiteral kAccel_init_flow_str = "accel_init_flow_str";
 
 IntegerAttr getU32IntegerAttr(PatternRewriter &rewriter, unsigned value) {
   return rewriter.getIntegerAttr(rewriter.getIntegerType(32, false), value);
+}
+
+/// Remove quotes from string to prevent parser from treating it as string.
+static StringRef prepStringOption(std::string &s, const char delim = '\"') {
+  // NOTE: There is an inconsistent bug with
+  //       StringRef::drop_front(),drop_back(),consume_front(),consume_back()
+  //       It likely does not update the size every time.
+  // NOTE: Input &s must be live after this function call. Passing by copy
+  //       also does not work.
+  // return StringRef(s).consume_front(delim).consume_back(delim);
+
+  if (s[s.length() - 1] == delim)
+    s.erase(s.end() - ((s.length() > 0) ? 1 : 0), s.end());
+  if (s[0] == delim)
+    s.erase(s.begin());
+
+  return StringRef(s);
 }
 
 /// Sets operation Attrs used in generic to accel conversion
@@ -85,31 +104,53 @@ public:
 
     // OpcodeMap Attribute
     // as string
-    op->setAttr(kAccel_opcode_map_str,
-                rewriter.getStringAttr(options.opcodeMap));
-
-    // as dictionary
-    // TODO
-    DictionaryAttr dictAttr = rewriter.getDictionaryAttr(rewriter.getNamedAttr(
-        "sA", /*Bool array attr*/ rewriter.getArrayAttr(
-            {rewriter.getBoolAttr(true), rewriter.getBoolAttr(false)})));
-    op->setAttr(kAccel_opcode_map, dictAttr);
+    std::string s0 = options.opcodeMap;
+    StringRef opcodeMapStr = prepStringOption(s0);
+    if (opcodeMapStr == "") {
+      rewriter.finalizeRootUpdate(op);
+      return success();
+    }
+    op->setAttr(kAccel_opcode_map_str, rewriter.getStringAttr(opcodeMapStr));
+    // as attribute
+    OpcodeMapAttr opcodeMapAttr =
+        parseAttribute(opcodeMapStr, rewriter.getContext())
+            .dyn_cast<OpcodeMapAttr>();
+    op->setAttr(kAccel_opcode_map, opcodeMapAttr);
 
     // OpcodeFlow Attribute
     // as string
-    op->setAttr(kAccel_opcode_flow_str,
-                rewriter.getStringAttr(options.opcodeFlow));
+    std::string s1 = options.opcodeFlow;
+    StringRef opcodeFlowStr = prepStringOption(s1);
+    op->setAttr(kAccel_opcode_flow_str, rewriter.getStringAttr(opcodeFlowStr));
+    // as attribute
+    // TODO: handle kAccel_opcode_flow, parse string to validate identifiers
 
-    // TODO - must parse the string inputs to get the identifiers and placement
-    // op->setAttr(kAccel_opcode_flow,
-    //             rewriter.getStringAttr(options.opcodeFlow));
+    // InitFlow Attribute
+    // as string
+    std::string s2 = options.initFlow;
+    StringRef initFlowStr = prepStringOption(s2);
+    op->setAttr(kAccel_init_flow_str, rewriter.getStringAttr(initFlowStr));
+    // as attribute
+    // TODO: handle kAccel_init_flow, parse string to validate identifiers
 
-    // TODO - LoopPermutation Attribute, it is a array of integers attribute
-    // op->setAttr(kAccel_loop_permutation,
-    //             rewriter.getArrayAttr(options.loopPermutation));
+    // Create a lambda function for ArrayRef<unsigned> options
+    auto getArrayAttr = [&](const ArrayRef<unsigned> &inArray) -> ArrayAttr {
+      SmallVector<Attribute> tmpArray;
+      for (auto v : inArray)
+        tmpArray.push_back(rewriter.getI32IntegerAttr(v));
+      return rewriter.getArrayAttr(tmpArray);
+    };
+
+    // LoopPermutation Attribute
+    op->setAttr(kAccel_loop_permutation, getArrayAttr(options.loopPermutation));
+
+    // LoopTiling Attribute
+    op->setAttr(kAccel_tile_sizes, getArrayAttr(options.tileSizes));
+
+    // Accelerator Tile Size Attribute
+    op->setAttr(kAccel_accel_tile_size, getArrayAttr(options.tileSize));
 
     rewriter.finalizeRootUpdate(op);
-    op.emitWarning() << "GenericAttrAnnotation";
     return success();
   }
 
@@ -137,6 +178,7 @@ static void materializeDMAConstants(PatternRewriter &rewriter, Operation *op,
 /// Rewrites GenericOp as a series of of accel.<operations>
 /// Expects the correct attributes to be already set as it
 /// does not use options flags and instead, reads the op attributes.
+/// TODO: Let this be the case for accelerators with no OPCODES
 class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
@@ -246,7 +288,7 @@ struct ConvertLinalgGenericToAccelPass
     this->anchorFuncName = options.anchorFuncName;
     this->anchorOpName = options.anchorOpName;
     this->opcodeMap = options.opcodeMap;
-    this->initOpcodes = options.initOpcodes;
+    this->initFlow = options.initFlow;
     this->opcodeFlow = options.opcodeFlow;
   }
 
@@ -268,7 +310,7 @@ struct ConvertLinalgGenericToAccelPass
     options.anchorFuncName = this->anchorFuncName;
     options.anchorOpName = this->anchorOpName;
     options.opcodeMap = this->opcodeMap;
-    options.initOpcodes = this->initOpcodes;
+    options.initFlow = this->initFlow;
     options.opcodeFlow = this->opcodeFlow;
   }
 };

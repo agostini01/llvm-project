@@ -305,10 +305,7 @@ public:
   //===--------------------------------------------------------------------===//
 
   /// Parse a reference to either an opcode map, or an integer set.
-  ParseResult parseOpcodeMapOrIntegerSetReference(OpcodeMap &map,
-                                                  IntegerSet &set);
   ParseResult parseOpcodeMapReference(OpcodeMap &map);
-  // ParseResult parseIntegerSetReference(IntegerSet &set);
 
   /// Parse an OpcodeMap where the dim and symbol identifiers are SSA ids.
   ParseResult
