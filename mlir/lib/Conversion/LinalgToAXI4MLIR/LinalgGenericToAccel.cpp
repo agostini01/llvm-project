@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/Conversion/LinalgToAXI4MLIR/LinalgGenericToAccel.h"
+#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 
 #include "../PassDetail.h"
 
@@ -72,21 +73,30 @@ static StringRef prepStringOption(std::string &s, const char delim = '\"') {
 }
 
 /// Sets operation Attrs used in generic to accel conversion
-class GenericAttrAnnotation : public OpRewritePattern<linalg::GenericOp> {
+class GenericAttrAnnotationPattern
+    : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
 
   /// Construct a generic pattern applied to all GenericOp that verify `filter`.
-  GenericAttrAnnotation(
+  GenericAttrAnnotationPattern(
       MLIRContext *context,
-      // LinalgTransformationFilter f = LinalgTransformationFilter(),
+      linalg::LinalgTransformationFilter f =
+          linalg::LinalgTransformationFilter(),
       AccelTransformationOptions options = AccelTransformationOptions(),
       PatternBenefit benefit = 1)
-      : OpRewritePattern<linalg::GenericOp>(context, benefit),
+      : OpRewritePattern<linalg::GenericOp>(context, benefit), filter(f),
         options(std::move(options)) {}
 
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
+    return returningMatchAndRewrite(op, rewriter);
+  }
+
+  LogicalResult returningMatchAndRewrite(linalg::GenericOp op,
+                                         PatternRewriter &rewriter) const {
+    if (failed(filter.checkAndNotify(rewriter, op)))
+      return failure();
     rewriter.startRootUpdate(op);
 
     // DMA Attributes
@@ -107,6 +117,7 @@ public:
     std::string s0 = options.opcodeMap;
     StringRef opcodeMapStr = prepStringOption(s0);
     if (opcodeMapStr == "") {
+      filter.replaceLinalgTransformationFilter(rewriter, op);
       rewriter.finalizeRootUpdate(op);
       return success();
     }
@@ -150,11 +161,15 @@ public:
     // Accelerator Tile Size Attribute
     op->setAttr(kAccel_accel_tile_size, getArrayAttr(options.tileSize));
 
+    filter.replaceLinalgTransformationFilter(rewriter, op);
     rewriter.finalizeRootUpdate(op);
     return success();
   }
 
 private:
+  /// LinalgTransformMarker handles special attribute manipulations.
+  linalg::LinalgTransformationFilter filter;
+  /// Options for accel transformation
   AccelTransformationOptions options;
 };
 
@@ -162,7 +177,6 @@ private:
 static void materializeDMAConstants(PatternRewriter &rewriter, Operation *op,
                                     Location loc,
                                     SmallVector<Value, 5> &values) {
-  Type intTy = rewriter.getI32Type();
   values.push_back(rewriter.create<arith::ConstantOp>(
       loc, op->getAttrOfType<IntegerAttr>(kAccel_dmaAddress)));
   values.push_back(rewriter.create<arith::ConstantOp>(
@@ -186,7 +200,6 @@ public:
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
 
-    auto module = SymbolTable::getNearestSymbolTable(op);
     Location loc = op->getLoc();
 
     // Get location before first operation inside funcOp
@@ -260,7 +273,20 @@ public:
 
 void mlir::populateLinalgGenericToAccelConversionPatternsWithOptions(
     RewritePatternSet &patterns, const AccelTransformationOptions &options) {
-  patterns.add<GenericAttrAnnotation>(patterns.getContext(), options, 2);
+  MLIRContext *ctx = patterns.getContext();
+  // This populate patterns that implement the following FSM modifying
+  // kLinalgTransformMarker GENERALIZE -> ANNOTATE -> INTERCHANGE -> MEM(TILE)
+  // L3(TILE) -> L2(TILE) -> L1(TILE) -> ACCEL
+  patterns.add<GenericAttrAnnotationPattern>(
+      ctx,
+      linalg::LinalgTransformationFilter(StringAttr::get(ctx, "ANNOTATE"),
+                                         StringAttr::get(ctx, "INTERCHANGE")),
+      options);
+  populateCommonLinalgTransformationPatterns(patterns, options);
+}
+
+void mlir::populateLinalgGenericToAccelConversionPatterns(
+    RewritePatternSet &patterns) {
   patterns.add<LinalgGenericToAccel>(patterns.getContext());
 }
 
@@ -329,7 +355,7 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   auto module = getOperation();
   MLIRContext *ctx = &getContext();
 
-  // 1. Marks anchor ops with the "generalize" attribute
+  // 1. Marks anchor ops with the "GENERALIZE" attribute
   module.walk([&](FuncOp functionOp) {
     if (!anchorFuncName.empty() && anchorFuncName != functionOp.getName())
       return;
@@ -338,19 +364,22 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
       if (anchorOpName.empty() || anchorOpName != op->getName().getStringRef())
         return;
       if (!op->getAttr(kAccelTransformMarker)) {
+        op->setAttr(kAccelTransformMarker,
+                    StringAttr::get(&getContext(), "ACCEL"));
         op->setAttr(kLinalgTransformMarker,
-                    StringAttr::get(&getContext(), "generalize"));
+                    StringAttr::get(&getContext(), "GENERALIZE"));
       }
     });
   });
 
-  // 2. Generalizes the marked ops, marking the Ops with the "ACCEL" attribute
-  // Uses a nested pass manager
+  // 2. Generalizes the marked ops, marking the Ops with the next attribute in
+  // the FSM. Uses a nested pass manager.
   PassManager pm(module.getContext());
-  linalg::LinalgTransformationFilter f(StringAttr::get(ctx, "generalize"),
-                                       StringAttr::get(ctx, "ACCEL"));
+  linalg::LinalgTransformationFilter f(StringAttr::get(ctx, "GENERALIZE"),
+                                       StringAttr::get(ctx, "ANNOTATE"));
   pm.addNestedPass<FuncOp>(
       mlir::createLinalgStrategyGeneralizePass(anchorOpName, f));
+
   if (failed(pm.run(module)))
     signalPassFailure();
 
@@ -363,6 +392,7 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   ConversionTarget target(getContext());
   // clang-format off
   target.addLegalDialect<linalg::LinalgDialect,
+                         AffineDialect,
                          scf::SCFDialect,
                          memref::MemRefDialect, 
                          accel::AccelDialect, 
@@ -372,11 +402,34 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   // clang-format on
   target.addDynamicallyLegalOp<linalg::GenericOp>(
       [&](linalg::GenericOp op) -> bool {
+        MLIRContext *ctx = &getContext();
+        SmallVector<StringRef, 8> markers = {
+            "GENERALIZE", "ANNOTATE", "INTERCHANGE", "MEM", "L3", "L2", "L1"};
+
+        auto aMarkerMatchesAttr = [&](const StringAttr &attr) -> bool {
+          // Acts like an OR operation, returns true in the first match
+          for (auto marker : markers) {
+            if (marker == attr.getValue())
+              return true;
+          }
+          return false;
+        };
+
+        return !(aMarkerMatchesAttr(
+            op->getAttr(kLinalgTransformMarker).dyn_cast<StringAttr>()));
+      });
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+    signalPassFailure();
+
+  RewritePatternSet patterns2(&getContext());
+  populateLinalgGenericToAccelConversionPatterns(patterns2);
+  target.addDynamicallyLegalOp<linalg::GenericOp>(
+      [&](linalg::GenericOp op) -> bool {
         auto marker = StringAttr::get(&getContext(), "ACCEL");
         return !((op->getAttr(kAccelTransformMarker) == marker) ||
                  (op->getAttr(kLinalgTransformMarker) == marker));
       });
-  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns2))))
     signalPassFailure();
 }
 

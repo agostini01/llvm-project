@@ -39,7 +39,7 @@ struct AccelTransformationOptions {
   /// Anchor
   std::string anchorFuncName;
   std::string anchorOpName;
-  
+
   /// Opcode information
   std::string opcodeMap;
   std::string initFlow;
@@ -53,10 +53,12 @@ public:
 /// Apply tiling patterns to matmul operations with the correct attribute
 void applyPatterns(FuncOp funcOp, const AccelTransformationOptions &options);
 
-void addTilingPatternToSet(RewritePatternSet &patterns, MLIRContext *ctx,
-                           const StringRef &srcAttrName,
-                           const StringRef &dstAttrName, const unsigned &tsd0,
-                           const unsigned &tsd1, const unsigned &tsd2);
+/// Populates patterns that implement a FSM of modifications.
+/// Changhing the kLinalgTransformMarker
+/// GENERALIZE -> INTERCHANGE -> MEM(TILE) L3(TILE) -> L2(TILE) -> L1(TILE) ->
+/// ACCEL
+void populateCommonLinalgTransformationPatterns(
+    RewritePatternSet &patterns, const AccelTransformationOptions &options);
 
 } // namespace mlir
 

@@ -9,8 +9,8 @@
 #ifndef MLIR_CONVERSION_LINALGTOAXI4MLIR_LINALGGENERICTOACCEL_H_
 #define MLIR_CONVERSION_LINALGTOAXI4MLIR_LINALGGENERICTOACCEL_H_
 
-#include "mlir/IR/PatternMatch.h"
 #include "mlir/Conversion/LinalgToAXI4MLIR/AXI4MLIRUtils.h"
+#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
 class MLIRContext;
@@ -24,6 +24,8 @@ class OperationPass;
 void populateLinalgGenericToAccelConversionPatternsWithOptions(
     RewritePatternSet &patterns,
     const AccelTransformationOptions &options = AccelTransformationOptions());
+void populateLinalgGenericToAccelConversionPatterns(
+    RewritePatternSet &patterns);
 
 /// Create the pass to convert from LinalgOps to AccelOps
 std::unique_ptr<OperationPass<ModuleOp>>
