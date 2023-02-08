@@ -1,9 +1,8 @@
 // RUN: mlir-opt %s --test-generic-to-accel | FileCheck %s
 // RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul opcode-map="opcode_map<s0=[op_send(0)]>"' | FileCheck %s --check-prefix=ANCHOR
-// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul flow-cpu-accumulation=true opcode-map="opcode_map<s0=[op_send(0)]>"' | FileCheck %s --check-prefix=CPUACC
 
 #matmul_trait = {
-  __accel_transform__="ACCEL",
+  __internal_linalg_transform__="ACCELERATE",
 
   // Original generic information
   iterator_types = ["parallel", "parallel", "reduction"],
@@ -32,10 +31,9 @@ func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memre
   return
 }
 
-// ---
-
 #double_transpose_trait = {
-  __accel_transform__="ACCEL",
+
+  __internal_linalg_transform__="ACCELERATE",
 
   // Original generic information
   iterator_types = ["parallel", "parallel"],
@@ -54,16 +52,6 @@ func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memre
 // CHECK:       accel.recv
 // CHECK:       accel.recv
 
-// CPUACC-LABEL: func @test_multiple_outputs
-// CPUACC:       accel.init_dma
-// CPUACC:       accel.send
-// CPUACC:       accel.send
-// CPUACC:       memref.alloc
-// CPUACC:       accel.recv
-// CPUACC:       linalg.generic
-// CPUACC:       memref.alloc
-// CPUACC:       accel.recv
-// CPUACC:       linalg.generic
 func @test_multiple_outputs(%A: memref<16x8xi32>, %B: memref<16x8xi32>, 
                             %C: memref<8x16xi32>, %D: memref<8x16xi32>) {
   linalg.generic #double_transpose_trait

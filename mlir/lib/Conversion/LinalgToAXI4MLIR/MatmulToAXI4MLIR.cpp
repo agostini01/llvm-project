@@ -329,12 +329,12 @@ struct ConvertMatmulToAXI4MLIRPass
 
     // Replace inner-matmul with ACCEL attribute by accelerator driver logic
     module.walk([&](linalg::GenericOp op) {
-      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
+      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "GENACCEL"))
         addDMAInitCalls(op->getParentOfType<FuncOp>(), options);
     });
 
     module.walk([&](linalg::GenericOp op) {
-      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "ACCEL"))
+      if (op->getAttr(kLinalgTransformMarker) == StringAttr::get(ctx, "GENACCEL"))
         generateRuntime(op, options);
     });
 

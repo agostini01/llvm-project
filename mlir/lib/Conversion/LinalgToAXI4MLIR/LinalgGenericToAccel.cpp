@@ -34,7 +34,7 @@
 using namespace mlir;
 
 const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
-const StringLiteral kAccelTransformMarker = "__accel_transform__";
+const StringLiteral kAccelTransformMarker = "__accel_transform__"; // Not used
 const StringLiteral kAccel_dmaAddress = "accel_dmaAddress";
 const StringLiteral kAccel_dmaInputAddress = "accel_dmaInputAddress";
 const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
@@ -355,17 +355,22 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   auto module = getOperation();
   MLIRContext *ctx = &getContext();
 
-  // 1. Marks anchor ops with the "GENERALIZE" attribute
+  // 1. Marks anchor ops with the "GENERALIZE" or "ANNOTATE" attribute
   module.walk([&](FuncOp functionOp) {
     if (!anchorFuncName.empty() && anchorFuncName != functionOp.getName())
       return;
 
     functionOp.walk([&](linalg::LinalgOp op) {
-      if (anchorOpName.empty() || anchorOpName != op->getName().getStringRef())
-        return;
-      if (!op->getAttr(kAccelTransformMarker)) {
-        op->setAttr(kAccelTransformMarker,
-                    StringAttr::get(&getContext(), "ACCEL"));
+      if ((op->getAttr(kLinalgTransformMarker) !=
+           StringAttr::get(ctx, "ACCELERATE"))) {
+        if ((anchorOpName != op->getName().getStringRef()))
+          return;
+      }
+
+      if (isa<linalg::GenericOp>(op)) {
+        op->setAttr(kLinalgTransformMarker,
+                    StringAttr::get(&getContext(), "ANNOTATE"));
+      } else {
         op->setAttr(kLinalgTransformMarker,
                     StringAttr::get(&getContext(), "GENERALIZE"));
       }
@@ -406,17 +411,17 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
         SmallVector<StringRef, 8> markers = {
             "GENERALIZE", "ANNOTATE", "INTERCHANGE", "MEM", "L3", "L2", "L1"};
 
-        auto aMarkerMatchesAttr = [&](const StringAttr &attr) -> bool {
+        auto aMarkerMatchesAttr = [&](const Attribute &attr) -> bool {
           // Acts like an OR operation, returns true in the first match
           for (auto marker : markers) {
-            if (marker == attr.getValue())
+            // TODO: Could be made more efficient by casting attr to StringAttr
+            if (StringAttr::get(ctx, marker) == attr)
               return true;
           }
           return false;
         };
 
-        return !(aMarkerMatchesAttr(
-            op->getAttr(kLinalgTransformMarker).dyn_cast<StringAttr>()));
+        return !(aMarkerMatchesAttr(op->getAttr(kLinalgTransformMarker)));
       });
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
@@ -425,9 +430,8 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
   populateLinalgGenericToAccelConversionPatterns(patterns2);
   target.addDynamicallyLegalOp<linalg::GenericOp>(
       [&](linalg::GenericOp op) -> bool {
-        auto marker = StringAttr::get(&getContext(), "ACCEL");
-        return !((op->getAttr(kAccelTransformMarker) == marker) ||
-                 (op->getAttr(kLinalgTransformMarker) == marker));
+        auto marker = StringAttr::get(&getContext(), "GENACCEL");
+        return !((op->getAttr(kLinalgTransformMarker) == marker));
       });
   if (failed(applyPartialConversion(module, target, std::move(patterns2))))
     signalPassFailure();

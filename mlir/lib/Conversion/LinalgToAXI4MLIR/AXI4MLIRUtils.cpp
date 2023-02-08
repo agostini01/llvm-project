@@ -183,14 +183,14 @@ void mlir::populateCommonLinalgTransformationPatterns(
         LinalgTilingOptions().setTileSizes(
             {options.tileSize, options.tileSize, options.tileSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
+                                   StringAttr::get(ctx, "GENACCEL")));
 
   } else {
     patterns.add<LinalgTilingPattern>(
         GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes({4, 4, 4}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
+                                   StringAttr::get(ctx, "GENACCEL")));
   }
 }
 
@@ -298,14 +298,14 @@ void mlir::applyPatterns(FuncOp funcOp,
         LinalgTilingOptions().setTileSizes(
             {options.tileSize, options.tileSize, options.tileSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
+                                   StringAttr::get(ctx, "GENACCEL")));
 
   } else {
     patterns.add<LinalgTilingPattern>(
         GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes({4, 4, 4}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "ACCEL")));
+                                   StringAttr::get(ctx, "GENACCEL")));
   }
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
