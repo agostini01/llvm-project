@@ -79,6 +79,7 @@ public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
 
   /// Construct a generic pattern applied to all GenericOp that verify `filter`.
+  /// If attributes are already annotated, skip the replacement.
   GenericAttrAnnotationPattern(
       MLIRContext *context,
       linalg::LinalgTransformationFilter f =
@@ -93,6 +94,15 @@ public:
     return returningMatchAndRewrite(op, rewriter);
   }
 
+  /// Check if the attribute attrName is already set, if not, use a lambda
+  /// function to set it.
+  template <typename Func>
+  static void setAttrIfEmpty(Operation *op, StringRef attrName, Func lambda) {
+    if (!op->getAttr(attrName)) {
+      lambda();
+    }
+  }
+
   LogicalResult returningMatchAndRewrite(linalg::GenericOp op,
                                          PatternRewriter &rewriter) const {
     if (failed(filter.checkAndNotify(rewriter, op)))
@@ -100,17 +110,29 @@ public:
     rewriter.startRootUpdate(op);
 
     // DMA Attributes
-    op->setAttr(kAccel_dmaAddress,
-                rewriter.getI32IntegerAttr(options.dmaAddress));
-    op->setAttr(kAccel_dmaInputAddress,
-                rewriter.getI32IntegerAttr(options.dmaInputAddress));
-    op->setAttr(kAccel_dmaInputBufferSize,
-                rewriter.getI32IntegerAttr(options.dmaInputBufferSize));
-    op->setAttr(kAccel_dmaOuputAddress,
-                rewriter.getI32IntegerAttr(options.dmaOutputAddress));
-    op->setAttr(kAccel_dmaOuputBufferSize,
-                rewriter.getI32IntegerAttr(options.dmaOutputBufferSize));
-    op->setAttr(kAccel_acc_on_cpu, rewriter.getBoolAttr(options.flowCpuAcc));
+    setAttrIfEmpty(op, kAccel_dmaAddress, [&]() {
+      op->setAttr(kAccel_dmaAddress,
+                  rewriter.getI32IntegerAttr(options.dmaAddress));
+    });
+    setAttrIfEmpty(op, kAccel_dmaInputAddress, [&]() {
+      op->setAttr(kAccel_dmaInputAddress,
+                  rewriter.getI32IntegerAttr(options.dmaInputAddress));
+    });
+    setAttrIfEmpty(op, kAccel_dmaInputBufferSize, [&]() {
+      op->setAttr(kAccel_dmaInputBufferSize,
+                  rewriter.getI32IntegerAttr(options.dmaInputBufferSize));
+    });
+    setAttrIfEmpty(op, kAccel_dmaOuputAddress, [&]() {
+      op->setAttr(kAccel_dmaOuputAddress,
+                  rewriter.getI32IntegerAttr(options.dmaOutputAddress));
+    });
+    setAttrIfEmpty(op, kAccel_dmaOuputBufferSize, [&]() {
+      op->setAttr(kAccel_dmaOuputBufferSize,
+                  rewriter.getI32IntegerAttr(options.dmaOutputBufferSize));
+    });
+    setAttrIfEmpty(op, kAccel_acc_on_cpu, [&]() {
+      op->setAttr(kAccel_acc_on_cpu, rewriter.getBoolAttr(options.flowCpuAcc));
+    });
 
     // OpcodeMap Attribute
     // as string
@@ -121,18 +143,27 @@ public:
       rewriter.finalizeRootUpdate(op);
       return success();
     }
-    op->setAttr(kAccel_opcode_map_str, rewriter.getStringAttr(opcodeMapStr));
+    setAttrIfEmpty(op, kAccel_opcode_map_str, [&]() {
+      op->setAttr(kAccel_opcode_map_str, rewriter.getStringAttr(opcodeMapStr));
+    });
     // as attribute
-    OpcodeMapAttr opcodeMapAttr =
-        parseAttribute(opcodeMapStr, rewriter.getContext())
-            .dyn_cast<OpcodeMapAttr>();
-    op->setAttr(kAccel_opcode_map, opcodeMapAttr);
+    setAttrIfEmpty(op, kAccel_opcode_map, [&]() {
+      OpcodeMapAttr opcodeMapAttr =
+          parseAttribute(
+              op->getAttrOfType<StringAttr>(kAccel_opcode_map_str).getValue(),
+              rewriter.getContext())
+              .dyn_cast<OpcodeMapAttr>();
+      op->setAttr(kAccel_opcode_map, opcodeMapAttr);
+    });
 
     // OpcodeFlow Attribute
     // as string
     std::string s1 = options.opcodeFlow;
     StringRef opcodeFlowStr = prepStringOption(s1);
-    op->setAttr(kAccel_opcode_flow_str, rewriter.getStringAttr(opcodeFlowStr));
+    setAttrIfEmpty(op, kAccel_opcode_flow_str, [&]() {
+      op->setAttr(kAccel_opcode_flow_str,
+                  rewriter.getStringAttr(opcodeFlowStr));
+    });
     // as attribute
     // TODO: handle kAccel_opcode_flow, parse string to validate identifiers
 
@@ -140,7 +171,9 @@ public:
     // as string
     std::string s2 = options.initFlow;
     StringRef initFlowStr = prepStringOption(s2);
-    op->setAttr(kAccel_init_flow_str, rewriter.getStringAttr(initFlowStr));
+    setAttrIfEmpty(op, kAccel_init_flow_str, [&]() {
+      op->setAttr(kAccel_init_flow_str, rewriter.getStringAttr(initFlowStr));
+    });
     // as attribute
     // TODO: handle kAccel_init_flow, parse string to validate identifiers
 
@@ -152,14 +185,25 @@ public:
       return rewriter.getArrayAttr(tmpArray);
     };
 
+    // Attributes for tilling and permutation
+    // TODO: currently the attribute is set correctly but the rewriter pass uses
+    // what is inside the command line options
+
     // LoopPermutation Attribute
-    op->setAttr(kAccel_loop_permutation, getArrayAttr(options.loopPermutation));
+    setAttrIfEmpty(op, kAccel_loop_permutation, [&]() {
+      op->setAttr(kAccel_loop_permutation,
+                  getArrayAttr(options.loopPermutation));
+    });
 
     // LoopTiling Attribute
-    op->setAttr(kAccel_tile_sizes, getArrayAttr(options.tileSizes));
+    setAttrIfEmpty(op, kAccel_tile_sizes, [&]() {
+      op->setAttr(kAccel_tile_sizes, getArrayAttr(options.tileSizes));
+    });
 
     // Accelerator Tile Size Attribute
-    op->setAttr(kAccel_accel_tile_size, getArrayAttr(options.tileSize));
+    setAttrIfEmpty(op, kAccel_accel_tile_size, [&]() {
+      op->setAttr(kAccel_accel_tile_size, getArrayAttr(options.tileSize));
+    });
 
     filter.replaceLinalgTransformationFilter(rewriter, op);
     rewriter.finalizeRootUpdate(op);
