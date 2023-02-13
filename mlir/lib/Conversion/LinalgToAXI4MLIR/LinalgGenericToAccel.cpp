@@ -241,6 +241,68 @@ class LinalgGenericToAccel : public OpRewritePattern<linalg::GenericOp> {
 public:
   using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
 
+  // Create a function that depending on an integer, adds a value to the
+  // correct loop body in a nested loop structure.
+  // ex: if loop_offset = 0,
+  //        then add to the innermost loop body, before `op`
+  //     if loop_offset = 1,
+  //        then add to the second innermost loop body, after the `op`
+  //     if loop_offset = 2,
+  //        then add to the third innermost loop body, after the `op`
+  //     if loop_offset = -1,
+  //        then add to the second innermost loop body, before `op`
+  //
+  template <typename Func>
+  static void addOperationToLoopBody(PatternRewriter &rewriter, Location loc,
+                                     Operation *op, int loop_offset,
+                                     Func lambda) {
+
+    // if loop_offset = 0, then add to the innermost loop body
+    if (loop_offset == 0) {
+      // Set insertion point before the operation
+      op->emitWarning() << "Offset is 0, calling lambda";
+      rewriter.setInsertionPoint(op);
+      lambda();
+      return;
+    }
+
+    // Get the parent loop operation
+    scf::ForOp parent_loop_op = op->getParentOfType<scf::ForOp>();
+    assert(
+        parent_loop_op &&
+        "Accessing parent scf::ForOp, but a parent scf::ForOp was not found.");
+
+    switch (loop_offset) {
+    case -1: {
+      op->emitWarning() << "Offset is -1, calling lambda";
+      if (parent_loop_op) {
+        // Set insertion point right before the scf::ForOp
+        rewriter.setInsertionPoint(parent_loop_op);
+      }
+      lambda();
+      break;
+    }
+    case 1: {
+      if (parent_loop_op) {
+        op->emitWarning() << "Offset is 1, calling lambda";
+        // Set insertion point after the parent loop operation
+        rewriter.setInsertionPoint(parent_loop_op->getNextNode());
+      }
+      lambda();
+      break;
+    }
+    default: {
+      // if not -1, 0, 1, we have to recursively call this function with parent
+      // loop operation as the operation and loop_offset -1 if positive, or +1
+      // if negative
+      addOperationToLoopBody(
+          rewriter, loc, parent_loop_op,
+          loop_offset > 0 ? loop_offset - 1 : loop_offset + 1, lambda);
+    }
+    }
+    return;
+  }
+
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
 
@@ -261,6 +323,14 @@ public:
     rewriter.create<accel::InitDMAOp>(funcFrontLoc, valuesForInitDMA[0],
                                       valuesForInitDMA[1], valuesForInitDMA[2],
                                       valuesForInitDMA[3], valuesForInitDMA[4]);
+
+    // TODO: 
+    // Example on how to add an operation before or after the innermost loop
+    // body addOperationToLoopBody(rewriter, loc, op, 1, [&]() {
+    //   op->emitWarning() << "Creating testCte";
+    //   Value testCte = rewriter.create<arith::ConstantOp>(
+    //       loc, IntegerAttr::get(rewriter.getI32Type(), 7777));
+    // });
 
     rewriter.setInsertionPoint(op);
 
