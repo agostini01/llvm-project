@@ -303,6 +303,76 @@ public:
     return;
   }
 
+  // Function to parse accel_opcode_flow_str and generate a vector of where each
+  // operation should be placed
+  // The attribute opcode flow string has the following format:
+  // opcode_flow ::=  opcode_flow_expr
+  // opcode_flow_expr ::= `(` opcode_flow_expr `)`
+  //                    | `(` opcode_flow_expr opcode_id `)`
+  //                    | `(` opcode_id `opcode_flow_expr )`
+  //                    | opcode_id
+  //
+
+  // Examples and outputs:
+  // accel_opcode_flow_str = "(s0 (s1 s2 r2))"
+  // [(-1,[s0]), (0,[s1,s2,r2])]
+  //
+  // accel_opcode_flow_str = "(s0 (s1 s2) r2)"
+  // [(-1,[s0]), (0,[s1,s2]), (1,[r2])]
+  //
+  // accel_opcode_flow_str = "((s0 s1 s2) r2)"
+  // [(0,[s0,s1,s2 ]), (1,[r2])]
+  static LogicalResult parseOpcodeFlowStr(Operation *op,
+                                   SmallVectorImpl<int> &loop_offsets,
+                                   SmallVectorImpl<StringRef> &opcode_ids) {
+    // op->emitWarning() << "Parsing opcode flow str";
+    std::string opcode_flow_str =
+        op->getAttrOfType<StringAttr>(kAccel_opcode_flow_str).str();
+    // op->emitWarning() << opcode_flow_str;
+
+    assert(!opcode_flow_str.empty() &&
+           "accel_opcode_flow_str is empty, but it should not be.");
+
+    int n_left_paren = 0;
+    int n_right_paren = 0;
+    for (char c : opcode_flow_str) {
+      if (c == '(')
+        n_left_paren++;
+      if (c == ')')
+        n_right_paren++;
+    }
+    assert(n_left_paren == n_right_paren &&
+           "accel_opcode_flow_str has mismatched parentheses");
+
+    // get substring between parentheses
+    int c_paren = 0;
+    for (size_t i = 0; i < opcode_flow_str.size(); i++) {
+      if (opcode_flow_str[i] == '(' || opcode_flow_str[i] == ')') {
+        size_t j = i + 1;
+        while ((opcode_flow_str[j] != ')') && (opcode_flow_str[j] != '(')) {
+          j++;
+        }
+        if (opcode_flow_str[i] == '(' || opcode_flow_str[i] == ')') {
+          c_paren++;
+
+          // Only print if still inside parentheses
+          if (c_paren < n_left_paren + n_right_paren) {
+            // if (j != opcode_flow_str.size()) {
+            std::string substring = opcode_flow_str.substr(i + 1, j - i - 1);
+
+            loop_offsets.push_back(c_paren - n_left_paren);
+            opcode_ids.push_back(substring);
+            // op->emitWarning() << substring << " " << c_paren - n_left_paren;
+          }
+        }
+      }
+    }
+
+    // op->emitWarning() << "Done parsing opcode flow str";
+    return success();
+
+  };
+
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
 
@@ -324,13 +394,19 @@ public:
                                       valuesForInitDMA[1], valuesForInitDMA[2],
                                       valuesForInitDMA[3], valuesForInitDMA[4]);
 
-    // TODO: 
-    // Example on how to add an operation before or after the innermost loop
-    // body addOperationToLoopBody(rewriter, loc, op, 1, [&]() {
-    //   op->emitWarning() << "Creating testCte";
-    //   Value testCte = rewriter.create<arith::ConstantOp>(
-    //       loc, IntegerAttr::get(rewriter.getI32Type(), 7777));
-    // });
+    SmallVector<int, 5> loop_offsets;
+    SmallVector<StringRef, 5> opcode_ids;
+    parseOpcodeFlowStr(op, loop_offsets, opcode_ids);
+
+    for (auto && l: loop_offsets) {
+      addOperationToLoopBody(rewriter, loc, op, l, [&]() {
+        op->emitWarning() << "Creating testCte";
+        // TODO: Create correct accel operation
+        Value testCte = rewriter.create<arith::ConstantOp>(
+            loc, IntegerAttr::get(rewriter.getI32Type(), 7777+l));
+      });
+    }
+    
 
     rewriter.setInsertionPoint(op);
 
