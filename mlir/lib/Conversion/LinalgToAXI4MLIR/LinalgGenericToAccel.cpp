@@ -24,6 +24,8 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 
+#include "mlir/IR/OpcodeExpr.h"
+
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/IR/BuiltinDialect.h"
 #include "mlir/IR/PatternMatch.h"
@@ -322,9 +324,10 @@ public:
   //
   // accel_opcode_flow_str = "((s0 s1 s2) r2)"
   // [(0,[s0,s1,s2 ]), (1,[r2])]
-  static LogicalResult parseOpcodeFlowStr(Operation *op,
-                                   SmallVectorImpl<int> &loop_offsets,
-                                   SmallVectorImpl<StringRef> &opcode_ids) {
+  static LogicalResult parseOpcodeFlowStr(
+      Operation *op, SmallVectorImpl<int> &loop_offsets,
+      SmallVectorImpl<std::string> &opcodes_strs,
+      SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
     // op->emitWarning() << "Parsing opcode flow str";
     std::string opcode_flow_str =
         op->getAttrOfType<StringAttr>(kAccel_opcode_flow_str).str();
@@ -361,17 +364,187 @@ public:
             std::string substring = opcode_flow_str.substr(i + 1, j - i - 1);
 
             loop_offsets.push_back(c_paren - n_left_paren);
-            opcode_ids.push_back(substring);
+            opcodes_strs.push_back(substring);
             // op->emitWarning() << substring << " " << c_paren - n_left_paren;
           }
         }
       }
     }
 
-    // op->emitWarning() << "Done parsing opcode flow str";
-    return success();
+    // The strings in opcodes_strs represent a string of multiple opcodes
+    // separated by spaces. We need to split them into individual opcodes.
+    for (auto &&opcode_str : opcodes_strs) {
+      SmallVector<StringRef, 3> splitted_opcodes;
+      StringRef opcode_id_sr = opcode_str;
+      // First trim leading and trailing spaces
+      opcode_id_sr = opcode_id_sr.trim();
+      // Finally split the string into individual opcodes
+      opcode_id_sr.split(splitted_opcodes, " ");
 
-  };
+      // push back the vector of opcode ids
+      lists_of_opcode_ids.push_back(splitted_opcodes);
+
+      // print the opcodes
+      // for (auto &&opcode_id_split : splitted_opcodes) {
+      //   op->emitWarning() << "Opcode id: " << opcode_id_split<< "!";
+      // }
+    }
+
+    assert(loop_offsets.size() == lists_of_opcode_ids.size() &&
+           "loop_offsets and lists_of_opcode_ids have different sizes");
+
+    return success();
+  }
+
+  static void printOpcodesInMap(
+      Operation *op, SmallVectorImpl<int> &loop_offsets,
+      SmallVectorImpl<std::string> &opcodes_strs,
+      SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
+
+    // Get the opcodeMap from operation
+    auto opcodeMap =
+        op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
+    llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
+    op->emitWarning() << "Number of opcodes in the map: "
+                      << opcodeMap.getNumOpcodes() << "!";
+
+    // Print value associated with opcode in the opcodeMap attribute
+    // Use OpcodeList OpcodeMap::getOpcodeList(StringRef key)
+    for (auto &&list_of_opcode_ids : lists_of_opcode_ids) {
+      for (auto &&opcode_id : list_of_opcode_ids) {
+        // Print id and position of opcode in the map
+        op->emitWarning() << "Opcode id: " << opcode_id << " at position "
+                          << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
+        assert(opcodeMap.getOpcodeListPosition(opcode_id) != -1 &&
+               "Opcode id not found in the map!");
+        OpcodeList opcodeList = opcodeMap.getOpcodeList(opcode_id);
+        // Print number of opcodes in the list
+        op->emitWarning() << "Number of opcodes in the list: "
+                          << opcodeList.getNumActions() << "!";
+        // Print id and dump of each opcode in the list
+        llvm::errs() << "Opcode id: " << opcode_id << " "
+                     << "OpcodeListDump: " << opcodeList << "\n";
+
+        for (auto &&action : opcodeList.getActions()) {
+          // Switch case on the kind of action
+          switch (action.getKind()) {
+          case OpcodeExprKind::Send: {
+            auto id = action.cast<OpcodeSendIdExpr>().getId();
+            llvm::errs() << "Send action. "
+                         << "id: " << id << "\n";
+            break;
+          }
+          case OpcodeExprKind::Recv: {
+            llvm::errs() << "Recv action. ";
+            break;
+          }
+          case OpcodeExprKind::SendLiteral: {
+            llvm::errs() << "SendLiteral action. ";
+            break;
+          }
+          case OpcodeExprKind::SendDim: {
+            llvm::errs() << "SendDim action. ";
+            break;
+          }
+          case OpcodeExprKind::SendIdx: {
+            llvm::errs() << "SendIdx action. ";
+            break;
+          }
+          default: {
+            llvm_unreachable("Unknown action.");
+          }
+          }
+          llvm::errs() << "action dump: " << action << "\n";
+        }
+      }
+    }
+  }
+
+  /// Add accel.send and accel.recv operations to the function based on the
+  /// loop_offsets and lists_of_opcode_ids paired with the opcodeMap attribute.
+  static void
+  addAccelOps(Operation *op, PatternRewriter &rewriter,
+              SmallVectorImpl<int> &loop_offsets,
+              SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
+
+    auto opcodeMap =
+        op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
+    llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
+    op->emitWarning() << "Number of opcodes in the map: "
+                      << opcodeMap.getNumOpcodes() << "!";
+
+    std::vector<std::pair<int, SmallVector<StringRef, 3>>> zipped;
+    std::transform(loop_offsets.begin(), loop_offsets.end(),
+                   lists_of_opcode_ids.begin(), std::back_inserter(zipped),
+                   [](int a, SmallVector<StringRef, 3> b) {
+                     return std::make_pair(a, b);
+                   });
+
+    for (auto &&pair : zipped) {
+      int loop_offset = pair.first;
+      SmallVector<StringRef, 3> list_of_opcode_ids = pair.second;
+      for (auto &&opcode_id : list_of_opcode_ids) {
+        // Print id and position of opcode in the map
+        op->emitWarning() << "Opcode id: " << opcode_id << " at position "
+                          << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
+        assert(opcodeMap.getOpcodeListPosition(opcode_id) != -1 &&
+               "Opcode id not found in the map!");
+        OpcodeList opcodeList = opcodeMap.getOpcodeList(opcode_id);
+        // Print number of opcodes in the list
+        op->emitWarning() << "Number of opcodes in the list: "
+                          << opcodeList.getNumActions() << "!";
+        // Print id and dump of each opcode in the list
+        llvm::errs() << "Opcode id: " << opcode_id << " "
+                     << "OpcodeListDump: " << opcodeList << "\n";
+
+        for (auto &&action : opcodeList.getActions()) {
+          // Switch case on the kind of action
+          switch (action.getKind()) {
+          case OpcodeExprKind::Send: {
+            auto id = action.cast<OpcodeSendIdExpr>().getId();
+            llvm::errs() << "Send action. "
+                         << "id: " << id << "\n";
+            Location loc = op->getLoc();
+            addOperationToLoopBody(
+                rewriter, op->getLoc(), op, loop_offset, [&]() {
+                  Value testCte = rewriter.create<arith::ConstantOp>(
+                      loc, IntegerAttr::get(rewriter.getI32Type(),
+                                            7777 + loop_offset));
+                  // return builder.create<AccelSendOp>(loc, id, args);
+                });
+            break;
+          }
+          case OpcodeExprKind::Recv: {
+            llvm::errs() << "Recv action. ";
+            Location loc = op->getLoc();
+            addOperationToLoopBody(
+                rewriter, op->getLoc(), op, loop_offset, [&]() {
+                  Value testCte = rewriter.create<arith::ConstantOp>(
+                      loc, IntegerAttr::get(rewriter.getI32Type(),
+                                            7777 + loop_offset));
+                  // return builder.create<AccelSendOp>(loc, id, args);
+                });
+            break;
+          }
+          case OpcodeExprKind::SendLiteral: {
+            llvm::errs() << "SendLiteral action. ";
+            break;
+          }
+          case OpcodeExprKind::SendDim: {
+            llvm::errs() << "SendDim action. ";
+            break;
+          }
+          case OpcodeExprKind::SendIdx: {
+            llvm::errs() << "SendIdx action. ";
+            break;
+          }
+          default:
+            llvm_unreachable("Unknown action.");
+          }
+        }
+      }
+    }
+  }
 
   LogicalResult matchAndRewrite(linalg::GenericOp op,
                                 PatternRewriter &rewriter) const override {
@@ -395,18 +568,29 @@ public:
                                       valuesForInitDMA[3], valuesForInitDMA[4]);
 
     SmallVector<int, 5> loop_offsets;
-    SmallVector<StringRef, 5> opcode_ids;
-    parseOpcodeFlowStr(op, loop_offsets, opcode_ids);
+    SmallVector<std::string, 4> opcodes_strs;
+    SmallVector<SmallVector<StringRef, 3>, 4> lists_of_opcode_ids;
+    parseOpcodeFlowStr(op, loop_offsets, opcodes_strs, lists_of_opcode_ids);
 
-    for (auto && l: loop_offsets) {
-      addOperationToLoopBody(rewriter, loc, op, l, [&]() {
-        op->emitWarning() << "Creating testCte";
-        // TODO: Create correct accel operation
-        Value testCte = rewriter.create<arith::ConstantOp>(
-            loc, IntegerAttr::get(rewriter.getI32Type(), 7777+l));
-      });
-    }
-    
+    // print contents of lists_of_opcode_ids
+    // for (auto &&list_of_opcode_ids : lists_of_opcode_ids) {
+    //   op->emitWarning() << "New list of opcode ids:";
+    //   for (auto &&opcode_id : list_of_opcode_ids) {
+    //     op->emitWarning() << "Opcode id: " << opcode_id << "!";
+    //   }
+    // }
+
+    printOpcodesInMap(op, loop_offsets, opcodes_strs, lists_of_opcode_ids);
+    addAccelOps(op, rewriter, loop_offsets, lists_of_opcode_ids);
+
+    // for (auto && l: loop_offsets) {
+    //   addOperationToLoopBody(rewriter, loc, op, l, [&]() {
+    //     op->emitWarning() << "Creating testCte";
+    //     // TODO: Create correct accel operation
+    //     Value testCte = rewriter.create<arith::ConstantOp>(
+    //         loc, IntegerAttr::get(rewriter.getI32Type(), 7777+l));
+    //   });
+    // }
 
     rewriter.setInsertionPoint(op);
 

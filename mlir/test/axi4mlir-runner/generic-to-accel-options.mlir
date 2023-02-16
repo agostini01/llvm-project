@@ -1,5 +1,5 @@
 // RUN: mlir-opt %s \
-// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,1,2 opcode-map="opcode_map<s0=[op_send(0)], s1=[op_send(1)], s2=[op_send(2)], r2=[op_recv(2)], reset=[op_send(32)]>" opcode-flow="(sA (sB sC))" init-flow="reset"  number-of-caches=2 tile-sizes=128,128,128,32,32,32 accel-tile-size=8' \
+// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,1,2 opcode-map="opcode_map<s0=[op_send(0)], s1=[op_send(1)], s2=[op_send(2)], r2=[op_recv(2)], reset=[op_send(32)]>" opcode-flow="(s0 (s1 s2))" init-flow="reset"  number-of-caches=2 tile-sizes=128,128,128,32,32,32 accel-tile-size=8' \
 // RUN: | FileCheck %s
 
 
