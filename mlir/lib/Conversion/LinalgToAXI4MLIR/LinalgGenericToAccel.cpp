@@ -363,9 +363,13 @@ public:
             // if (j != opcode_flow_str.size()) {
             std::string substring = opcode_flow_str.substr(i + 1, j - i - 1);
 
-            loop_offsets.push_back(c_paren - n_left_paren);
-            opcodes_strs.push_back(substring);
-            // op->emitWarning() << substring << " " << c_paren - n_left_paren;
+            // Only push back if the substring is not empty
+            if (!substring.empty()) {
+              loop_offsets.push_back(c_paren - n_left_paren);
+              opcodes_strs.push_back(substring);
+              // op->emitWarning() << substring << " " << c_paren -
+              // n_left_paren;
+            }
           }
         }
       }
@@ -392,6 +396,14 @@ public:
 
     assert(loop_offsets.size() == lists_of_opcode_ids.size() &&
            "loop_offsets and lists_of_opcode_ids have different sizes");
+
+    // Print the loop offsets and opcode ids
+    // op->emitWarning() << "Opcode flow str parsed successfully!"
+    //                   << "\n\tloop_offsets: " << loop_offsets
+    //                   << "\n\topcodes_strs: " << opcodes_strs
+    //                   << "\n\tlists_of_opcode_ids_size: " <<
+    //                   lists_of_opcode_ids.size()
+    //                   << "\n\tlists_of_opcode_ids: " << lists_of_opcode_ids;
 
     return success();
   }
