@@ -72,6 +72,24 @@ def Accel_SendOp : Accel_Op<"send"> {
   }];
 }
 
+def Accel_SendLiteralOp : Accel_Op<"sendLiteral"> {
+  let summary = "send Literal to DMA region";
+  let description = [{
+    Used to send a literal value to the DMA region.
+    The literal value is considered an opcode.
+  }];
+  let arguments = (ins SignlessIntegerLike:$opcode,
+                       Optional<I32>:$offset_value);
+
+
+  let results = (outs I32:$out_offset);
+
+  let assemblyFormat = [{
+    $opcode (`,` $offset_value^)?  attr-dict `:` 
+    `(` type($opcode) (`,` type($offset_value)^)? `)` `->` type($out_offset)
+  }];
+}
+
 def Accel_RecvOp : Accel_Op<"recv"> {
   let summary = "receive data from the DMA region into the MemRef";
   let description = [{

@@ -74,7 +74,7 @@ public:
 
     rewriter.replaceOpWithNewOp<CallOp>(op, name, /*TODO no type?*/ TypeRange(),
                                         op->getOperands());
-    // TODO: this may create several DMA frees, but only one is needed 
+    // TODO: this may create several DMA frees, but only one is needed
     rewriter.setInsertionPoint(op->getBlock()->getTerminator());
     rewriter.create<CallOp>(rewriter.getUnknownLoc(), kDmaFree,
                             /*TODO no type?*/ TypeRange(), ValueRange());
@@ -94,6 +94,7 @@ public:
     Location loc = op->getLoc();
 
     // TODO: Name has to match memref type
+    // TODO: This is giving the i32 name but memref may be f32
     auto name = kCopyToInbufferI32;
     auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
         SymbolTable::lookupSymbolIn(module, name));
@@ -134,7 +135,7 @@ public:
           rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
     }
 
-    // Recv flow: copy, start, wait
+    // Send flow: copy, start, wait
     rewriter.create<CallOp>(loc, name, intTy,
                             SmallVector<Value, 2>({casted, initOffset}));
 
@@ -147,6 +148,92 @@ public:
     rewriter.create<CallOp>(loc, kDmaStartSend, intTy,
                             SmallVector<Value, 2>({nElements, initOffset}));
     rewriter.create<CallOp>(loc, kDmaWaitSend, TypeRange());
+
+    Value resultOffset =
+        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
+    rewriter.replaceOp(op, {resultOffset});
+
+    return success();
+  }
+};
+
+// Rewrite SendLiteral to a call of kCopyToInbufferI32.
+// This could be optimized to transfer the literal directly to the
+// DMA buffer instead of going through a temporary memref.
+class SendLiteralToAXI4MLIRCall
+    : public OpRewritePattern<accel::SendLiteralOp> {
+public:
+  using OpRewritePattern<accel::SendLiteralOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(accel::SendLiteralOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto module = SymbolTable::getNearestSymbolTable(op);
+    Location loc = op->getLoc();
+
+    // TODO: Name has to match memref type
+    auto name = kCopyToInbufferI32;
+    auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
+        SymbolTable::lookupSymbolIn(module, name));
+
+    Type intTy = rewriter.getI32Type();
+    Value opcode = op.getOpcode();
+    // Create a memref and store the opcode in it
+    auto tmpMrTy = MemRefType::get(/*shape*/ {}, rewriter.getIntegerType(32));
+
+    auto input = rewriter.create<memref::AllocOp>(loc, tmpMrTy);
+    rewriter.create<memref::StoreOp>(loc, opcode, input, ValueRange());
+
+    auto inputType = input.getType().dyn_cast_or_null<MemRefType>();
+    if (!inputType)
+      return failure();
+    auto myType = inputType.getElementType();
+    Type mrTy = UnrankedMemRefType::get(myType, 0);
+
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
+
+    // Forward declare functions if it hasn't already been
+    if (!opFunc) { // TODO: check for the other function names
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
+
+      MLIRContext *ctx = rewriter.getContext();
+      Location uLoc = rewriter.getUnknownLoc();
+      FunctionType fType;
+
+      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
+      rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
+
+      fType = FunctionType::get(ctx, {}, {});
+      rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
+    }
+    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+
+    auto initOffset = op.getOffsetValue();
+    if (!initOffset) {
+      initOffset =
+          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
+    }
+
+    // Send flow: copy, start, wait
+    rewriter.create<CallOp>(loc, name, intTy,
+                            SmallVector<Value, 2>({casted, initOffset}));
+
+    int numElements = inputType.getNumElements();
+    int bitWidth = inputType.getElementTypeBitWidth();
+    int bytes = numElements * bitWidth / 8;
+
+    Value nElements = rewriter.create<arith::ConstantOp>(
+        loc, IntegerAttr::get(intTy, numElements));
+    rewriter.create<CallOp>(loc, kDmaStartSend, intTy,
+                            SmallVector<Value, 2>({nElements, initOffset}));
+    rewriter.create<CallOp>(loc, kDmaWaitSend, TypeRange());
+
+    // Free the temporary memref
+    rewriter.create<memref::DeallocOp>(loc, input);
 
     Value resultOffset =
         rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
@@ -233,6 +320,7 @@ void mlir::populateAccelToAXI4MLIRConversionPatterns(
     RewritePatternSet &patterns) {
   patterns.add<InitDMAToAXI4MLIRCall>(patterns.getContext());
   patterns.add<SendToAXI4MLIRCall>(patterns.getContext());
+  patterns.add<SendLiteralToAXI4MLIRCall>(patterns.getContext());
   patterns.add<RecvToAXI4MLIRCall>(patterns.getContext());
 }
 
