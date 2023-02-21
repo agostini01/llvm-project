@@ -558,7 +558,6 @@ public:
                   //   return;
                   // }
 
-
                   // Value newSubView = rewriter.create<memref::SubViewOp>(
                   //     loc, subViewOp.getType(), subViewOp.source(),
                   //     subViewOp.static_offsets(), subViewOp.static_sizes(),
@@ -590,7 +589,6 @@ public:
             Value operand = op->getOperands()[id];
             addOperationToLoopBody(
                 rewriter, op->getLoc(), op, loop_offset, [&]() {
-                  
                   auto subViewOp = operand.getDefiningOp<memref::SubViewOp>();
                   if (!subViewOp) {
                     // Simply create a Recv operation with the operand
@@ -600,7 +598,7 @@ public:
                   }
 
                   // TODO: Check if subview has been replaced
-                  
+
                   Value newSubView = rewriter.create<memref::SubViewOp>(
                       loc, subViewOp.getType(), subViewOp.source(),
                       subViewOp.offsets(), subViewOp.sizes(),
@@ -621,15 +619,24 @@ public:
             break;
           }
           case OpcodeExprKind::SendLiteral: {
-            llvm::errs() << "SendLiteral action. ";
+            auto value = action.cast<OpcodeSendLiteralExpr>().getValue();
+
+            Value literal = rewriter.create<arith::ConstantOp>(
+                loc, IntegerAttr::get(rewriter.getI32Type(), value));
+            addOperationToLoopBody(
+                rewriter, op->getLoc(), op, loop_offset, [&]() {
+                  initialOffset = rewriter.create<accel::SendLiteralOp>(
+                      loc, rewriter.getI32Type(), literal, initialOffset);
+                });
             break;
           }
           case OpcodeExprKind::SendDim: {
             llvm::errs() << "SendDim action. ";
+            llvm_unreachable("No support for SendDim yet.");
             break;
           }
           case OpcodeExprKind::SendIdx: {
-            llvm::errs() << "SendIdx action. ";
+            llvm::errs() << "No support for SendIdx yet. ";
             break;
           }
           default:
