@@ -136,8 +136,29 @@ public:
     }
 
     // Send flow: copy, start, wait
-    rewriter.create<CallOp>(loc, name, intTy,
+    auto c =rewriter.create<CallOp>(loc, name, intTy,
                             SmallVector<Value, 2>({casted, initOffset}));
+    
+    // c->emitWarning("SendToAXI4MLIRCall: inputType");
+    
+    // SmallVector<Range, 8> res;
+    // unsigned rank = ranks[0];
+    // res.reserve(rank);
+    // for (unsigned idx = 0; idx < rank; ++idx) {
+    //   Value offset =
+    //       op.isDynamicOffset(idx)
+    //           ? op.getDynamicOffset(idx)
+    //           : b.create<arith::ConstantIndexOp>(loc, op.getStaticOffset(idx));
+    //   Value size =
+    //       op.isDynamicSize(idx)
+    //           ? op.getDynamicSize(idx)
+    //           : b.create<arith::ConstantIndexOp>(loc, op.getStaticSize(idx));
+    //   Value stride =
+    //       op.isDynamicStride(idx)
+    //           ? op.getDynamicStride(idx)
+    //           : b.create<arith::ConstantIndexOp>(loc, op.getStaticStride(idx));
+    //   res.emplace_back(Range{offset, size, stride});
+    // }
 
     int numElements = inputType.getNumElements();
     int bitWidth = inputType.getElementTypeBitWidth();
