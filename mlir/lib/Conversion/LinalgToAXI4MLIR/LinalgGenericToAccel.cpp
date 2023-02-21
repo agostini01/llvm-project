@@ -479,6 +479,7 @@ public:
               SmallVectorImpl<int> &loop_offsets,
               SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
 
+    Location loc = op->getLoc();
     auto opcodeMap =
         op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
     llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
@@ -497,7 +498,8 @@ public:
       SmallVector<StringRef, 3> list_of_opcode_ids = pair.second;
       for (auto &&opcode_id : list_of_opcode_ids) {
         // Print id and position of opcode in the map
-        op->emitWarning() << "Opcode id: " << opcode_id << " at position "
+        op->emitWarning() << "Opcode id: " << opcode_id
+                          << " in map at position "
                           << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
         assert(opcodeMap.getOpcodeListPosition(opcode_id) != -1 &&
                "Opcode id not found in the map!");
@@ -509,20 +511,82 @@ public:
         llvm::errs() << "Opcode id: " << opcode_id << " "
                      << "OpcodeListDump: " << opcodeList << "\n";
 
+        // Create the value to track the offset of the data
+        Value cteZero = rewriter.create<arith::ConstantOp>(
+            loc, IntegerAttr::get(rewriter.getI32Type(), 0));
+        Value initialOffset = cteZero;
+
+        // Insert the actions in the IR
         for (auto &&action : opcodeList.getActions()) {
           // Switch case on the kind of action
           switch (action.getKind()) {
           case OpcodeExprKind::Send: {
             auto id = action.cast<OpcodeSendIdExpr>().getId();
-            llvm::errs() << "Send action. "
-                         << "id: " << id << "\n";
-            Location loc = op->getLoc();
+            // llvm::errs() << "Send action. "
+            //              << "id: " << id << "\n";
+
+            Value operand = op->getOperands()[id];
             addOperationToLoopBody(
                 rewriter, op->getLoc(), op, loop_offset, [&]() {
-                  Value testCte = rewriter.create<arith::ConstantOp>(
-                      loc, IntegerAttr::get(rewriter.getI32Type(),
-                                            7777 + loop_offset));
-                  // return builder.create<AccelSendOp>(loc, id, args);
+                  // Operand is a subview of the original memref, we need to
+                  // move this subview to correct loop_offset. We do this by
+                  // creating a new memref.subview with the same input
+                  // parameters. And replacing the operand with this new
+                  // subview.
+                  auto subViewOp = operand.getDefiningOp<memref::SubViewOp>();
+                  if (!subViewOp) {
+                    // Simply create a send operation with the operand
+                    initialOffset = rewriter.create<accel::SendOp>(
+                        loc, rewriter.getI32Type(), operand, initialOffset);
+                    return;
+                  }
+
+                  // // TODO: Check if subview has been replaced
+                  // // Only create the replacement if the subview has not been
+                  // // moved yet. To verify this, check if the parent of the
+                  // // subview is the same as the parent of op.
+                  // if (subViewOp->getParentOp() == op->getParentOp()) {
+                  //   op->emitWarning() << "Subview has already been moved!";
+                  //   initialOffset = rewriter.create<accel::SendOp>(
+                  //       loc, rewriter.getI32Type(), subViewOp,
+                  //       initialOffset);
+                  // } else {
+                  //   op->emitError() << "Subview has not been moved yet!";
+                  //   return;
+                  // }
+
+                  // Only create the replacement if the subview has not been
+                  // moved yet. To verify this, check if the parent of the
+                  // subview is the same as the parent of op.
+                  if (subViewOp->getParentOp() == op->getParentOp()) {
+                    op->emitWarning() << "Subview has already been moved!";
+                  } else {
+                    op->emitError() << "Subview has not been moved yet!";
+                    return;
+                  }
+
+                  // Value newSubView = rewriter.create<memref::SubViewOp>(
+                  //     loc, subViewOp.getType(), subViewOp.source(),
+                  //     subViewOp.static_offsets(), subViewOp.static_sizes(),
+                  //     subViewOp.static_strides());
+                  Value newSubView = rewriter.create<memref::SubViewOp>(
+                      loc, subViewOp.getType(), subViewOp.source(),
+                      subViewOp.offsets(), subViewOp.sizes(),
+                      subViewOp.strides(), subViewOp.static_offsets(),
+                      subViewOp.static_sizes(), subViewOp.static_strides());
+
+                  // Iterate on the operands, get defining op, if it is a
+                  // constantop then move it before the newsubview
+                  for (auto &&operand : subViewOp.getOperands()) {
+                    Operation *defOp = operand.getDefiningOp();
+                    if (defOp && isa<arith::ConstantOp>(defOp)) {
+                      defOp->moveBefore(newSubView.getDefiningOp());
+                    }
+                  }
+                  rewriter.replaceOp(subViewOp, newSubView);
+
+                  initialOffset = rewriter.create<accel::SendOp>(
+                      loc, rewriter.getI32Type(), newSubView, initialOffset);
                 });
             break;
           }
@@ -604,53 +668,55 @@ public:
     //   });
     // }
 
-    rewriter.setInsertionPoint(op);
+    // rewriter.setInsertionPoint(op);
 
-    Value cteZero = rewriter.create<arith::ConstantOp>(
-        loc, IntegerAttr::get(rewriter.getI32Type(), 0));
-    Value initialOffset = cteZero;
+    // Value cteZero = rewriter.create<arith::ConstantOp>(
+    //     loc, IntegerAttr::get(rewriter.getI32Type(), 0));
+    // Value initialOffset = cteZero;
 
-    for (Value operand : op.inputs()) {
-      initialOffset = rewriter.create<accel::SendOp>(loc, rewriter.getI32Type(),
-                                                     operand, initialOffset);
-    }
+    // for (Value operand : op.inputs()) {
+    //   initialOffset = rewriter.create<accel::SendOp>(loc,
+    //   rewriter.getI32Type(),
+    //                                                  operand, initialOffset);
+    // }
 
-    initialOffset = cteZero;
-    for (Value operand : op.outputs()) {
-      if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu).getValue()) {
-        MemRefType mrType = operand.getType().cast<MemRefType>();
-        Value tMr = rewriter.create<memref::AllocaOp>(loc, mrType);
-        rewriter.create<accel::RecvOp>(
-            loc, rewriter.getI32Type(), tMr,
-            initialOffset); // TODO: Initial offset? Multiple outputs?
+    // initialOffset = cteZero;
+    // for (Value operand : op.outputs()) {
+    //   if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu).getValue()) {
+    //     MemRefType mrType = operand.getType().cast<MemRefType>();
+    //     Value tMr = rewriter.create<memref::AllocaOp>(loc, mrType);
+    //     rewriter.create<accel::RecvOp>(
+    //         loc, rewriter.getI32Type(), tMr,
+    //         initialOffset); // TODO: Initial offset? Multiple outputs?
 
-        // Create affine maps and attributes for CPU accumulation
-        MemRefType tmpMrType = tMr.getType().cast<MemRefType>();
-        unsigned rank = tmpMrType.getRank();
-        SmallVector<AffineMap, 3> indexingMaps(
-            /*1 inputs, 1 (inplace) output*/ 2,
-            rewriter.getMultiDimIdentityMap(rank));
-        auto loopsAttr =
-            SmallVector<StringRef>(rank, getParallelIteratorTypeName());
+    //     // Create affine maps and attributes for CPU accumulation
+    //     MemRefType tmpMrType = tMr.getType().cast<MemRefType>();
+    //     unsigned rank = tmpMrType.getRank();
+    //     SmallVector<AffineMap, 3> indexingMaps(
+    //         /*1 inputs, 1 (inplace) output*/ 2,
+    //         rewriter.getMultiDimIdentityMap(rank));
+    //     auto loopsAttr =
+    //         SmallVector<StringRef>(rank, getParallelIteratorTypeName());
 
-        rewriter.create<linalg::GenericOp>(
-            loc,
-            /*resultTypes=*/TypeRange(),
-            /*inputs=*/tMr,
-            /*outputs=*/operand,
-            /*indexingMaps=*/indexingMaps,
-            /*iteratorTypes=*/loopsAttr,
-            /*bodyBuilder=*/
-            [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange args) {
-              Value added =
-                  nestedBuilder.create<arith::AddIOp>(loc, args[0], args[1]);
-              nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
-            });
-      } else {
-        initialOffset = rewriter.create<accel::RecvOp>(
-            loc, rewriter.getI32Type(), operand, initialOffset);
-      }
-    }
+    //     rewriter.create<linalg::GenericOp>(
+    //         loc,
+    //         /*resultTypes=*/TypeRange(),
+    //         /*inputs=*/tMr,
+    //         /*outputs=*/operand,
+    //         /*indexingMaps=*/indexingMaps,
+    //         /*iteratorTypes=*/loopsAttr,
+    //         /*bodyBuilder=*/
+    //         [&](OpBuilder &nestedBuilder, Location nestedLoc, ValueRange
+    //         args) {
+    //           Value added =
+    //               nestedBuilder.create<arith::AddIOp>(loc, args[0], args[1]);
+    //           nestedBuilder.create<linalg::YieldOp>(nestedLoc, added);
+    //         });
+    //   } else {
+    //     initialOffset = rewriter.create<accel::RecvOp>(
+    //         loc, rewriter.getI32Type(), operand, initialOffset);
+    //   }
+    // }
     rewriter.eraseOp(op);
 
     return success();
