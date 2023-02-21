@@ -248,7 +248,8 @@ public:
   // ex: if loop_offset = 0,
   //        then add to the innermost loop body, before `op`
   //     if loop_offset = 1,
-  //        then add to the second innermost loop body, after the `op`
+  //        then add to the second innermost loop body, before terminator the
+  //        `op`
   //     if loop_offset = 2,
   //        then add to the third innermost loop body, after the `op`
   //     if loop_offset = -1,
@@ -287,8 +288,8 @@ public:
     case 1: {
       if (parent_loop_op) {
         op->emitWarning() << "Offset is 1, calling lambda";
-        // Set insertion point after the parent loop operation
-        rewriter.setInsertionPoint(parent_loop_op->getNextNode());
+        // Set insertion point before the terminator of parent loop operation
+        rewriter.setInsertionPoint(parent_loop_op->getBlock()->getTerminator());
       }
       lambda();
       break;
@@ -511,10 +512,14 @@ public:
         llvm::errs() << "Opcode id: " << opcode_id << " "
                      << "OpcodeListDump: " << opcodeList << "\n";
 
-        // Create the value to track the offset of the data
-        Value cteZero = rewriter.create<arith::ConstantOp>(
-            loc, IntegerAttr::get(rewriter.getI32Type(), 0));
-        Value initialOffset = cteZero;
+        Value initialOffset = nullptr;
+
+        addOperationToLoopBody(rewriter, op->getLoc(), op, loop_offset, [&]() {
+          // Create the value to track the offset of the data
+          Value cteZero = rewriter.create<arith::ConstantOp>(
+              loc, IntegerAttr::get(rewriter.getI32Type(), 0));
+          initialOffset = cteZero;
+        });
 
         // Insert the actions in the IR
         for (auto &&action : opcodeList.getActions()) {
@@ -522,8 +527,6 @@ public:
           switch (action.getKind()) {
           case OpcodeExprKind::Send: {
             auto id = action.cast<OpcodeSendIdExpr>().getId();
-            // llvm::errs() << "Send action. "
-            //              << "id: " << id << "\n";
 
             Value operand = op->getOperands()[id];
             addOperationToLoopBody(
@@ -555,15 +558,6 @@ public:
                   //   return;
                   // }
 
-                  // Only create the replacement if the subview has not been
-                  // moved yet. To verify this, check if the parent of the
-                  // subview is the same as the parent of op.
-                  if (subViewOp->getParentOp() == op->getParentOp()) {
-                    op->emitWarning() << "Subview has already been moved!";
-                  } else {
-                    op->emitError() << "Subview has not been moved yet!";
-                    return;
-                  }
 
                   // Value newSubView = rewriter.create<memref::SubViewOp>(
                   //     loc, subViewOp.getType(), subViewOp.source(),
@@ -591,14 +585,38 @@ public:
             break;
           }
           case OpcodeExprKind::Recv: {
-            llvm::errs() << "Recv action. ";
-            Location loc = op->getLoc();
+            auto id = action.cast<OpcodeRecvIdExpr>().getId();
+
+            Value operand = op->getOperands()[id];
             addOperationToLoopBody(
                 rewriter, op->getLoc(), op, loop_offset, [&]() {
-                  Value testCte = rewriter.create<arith::ConstantOp>(
-                      loc, IntegerAttr::get(rewriter.getI32Type(),
-                                            7777 + loop_offset));
-                  // return builder.create<AccelSendOp>(loc, id, args);
+                  
+                  auto subViewOp = operand.getDefiningOp<memref::SubViewOp>();
+                  if (!subViewOp) {
+                    // Simply create a Recv operation with the operand
+                    initialOffset = rewriter.create<accel::RecvOp>(
+                        loc, rewriter.getI32Type(), operand, initialOffset);
+                    return;
+                  }
+
+                  // TODO: Check if subview has been replaced
+                  
+                  Value newSubView = rewriter.create<memref::SubViewOp>(
+                      loc, subViewOp.getType(), subViewOp.source(),
+                      subViewOp.offsets(), subViewOp.sizes(),
+                      subViewOp.strides(), subViewOp.static_offsets(),
+                      subViewOp.static_sizes(), subViewOp.static_strides());
+
+                  for (auto &&operand : subViewOp.getOperands()) {
+                    Operation *defOp = operand.getDefiningOp();
+                    if (defOp && isa<arith::ConstantOp>(defOp)) {
+                      defOp->moveBefore(newSubView.getDefiningOp());
+                    }
+                  }
+                  rewriter.replaceOp(subViewOp, newSubView);
+
+                  initialOffset = rewriter.create<accel::RecvOp>(
+                      loc, rewriter.getI32Type(), newSubView, initialOffset);
                 });
             break;
           }
@@ -648,15 +666,7 @@ public:
     SmallVector<SmallVector<StringRef, 3>, 4> lists_of_opcode_ids;
     parseOpcodeFlowStr(op, loop_offsets, opcodes_strs, lists_of_opcode_ids);
 
-    // print contents of lists_of_opcode_ids
-    // for (auto &&list_of_opcode_ids : lists_of_opcode_ids) {
-    //   op->emitWarning() << "New list of opcode ids:";
-    //   for (auto &&opcode_id : list_of_opcode_ids) {
-    //     op->emitWarning() << "Opcode id: " << opcode_id << "!";
-    //   }
-    // }
-
-    printOpcodesInMap(op, loop_offsets, opcodes_strs, lists_of_opcode_ids);
+    // printOpcodesInMap(op, loop_offsets, opcodes_strs, lists_of_opcode_ids);
     addAccelOps(op, rewriter, loop_offsets, lists_of_opcode_ids);
 
     // for (auto && l: loop_offsets) {
