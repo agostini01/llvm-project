@@ -112,6 +112,32 @@ static void fwdDeclareSendFuncs(PatternRewriter &rewriter, Operation *module,
   assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
 }
 
+// Forward declare functions for RecvOp
+static void fwdDeclareRecvFuncs(PatternRewriter &rewriter, Operation *module,
+                                Type intTy, Type mrTy) {
+  auto name = kCopyFromOutbufferI32;
+  auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
+      SymbolTable::lookupSymbolIn(module, name));
+  if (!opFunc) { // TODO: check for the other function names
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&module->getRegion(0).front());
+
+    MLIRContext *ctx = rewriter.getContext();
+    Location uLoc = rewriter.getUnknownLoc();
+    FunctionType fType;
+
+    fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
+    rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+    fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
+    rewriter.create<FuncOp>(uLoc, kDmaStartRecv, fType).setPrivate();
+
+    fType = FunctionType::get(ctx, {}, {});
+    rewriter.create<FuncOp>(uLoc, kDmaWaitRecv, fType).setPrivate();
+  }
+  assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+}
+
 // Create ops to get number of elements in dynamic sized SubViewOp
 static Value getNumElements(PatternRewriter &rewriter, Location loc,
                             memref::SubViewOp subViewOp, MemRefType inputType,
@@ -163,8 +189,8 @@ public:
 
     // Send flow: copy, start, wait
     Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
-    auto c = rewriter.create<CallOp>(
-        loc, name, intTy, SmallVector<Value, 2>({casted, initOffset}));
+    rewriter.create<CallOp>(loc, name, intTy,
+                            SmallVector<Value, 2>({casted, initOffset}));
 
     int bitWidth = inputType.getElementTypeBitWidth();
 
@@ -234,14 +260,11 @@ public:
 
     // TODO: Name has to match memref type
     auto name = kCopyToInbufferI32;
-    auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
-        SymbolTable::lookupSymbolIn(module, name));
-
     Type intTy = rewriter.getI32Type();
     Value opcode = op.getOpcode();
+
     // Create a memref and store the opcode in it
     auto tmpMrTy = MemRefType::get(/*shape*/ {}, rewriter.getIntegerType(32));
-
     auto input = rewriter.create<memref::AllocOp>(loc, tmpMrTy);
     rewriter.create<memref::StoreOp>(loc, opcode, input, ValueRange());
 
@@ -251,27 +274,7 @@ public:
     auto myType = inputType.getElementType();
     Type mrTy = UnrankedMemRefType::get(myType, 0);
 
-    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
-
-    // Forward declare functions if it hasn't already been
-    if (!opFunc) { // TODO: check for the other function names
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
-
-      MLIRContext *ctx = rewriter.getContext();
-      Location uLoc = rewriter.getUnknownLoc();
-      FunctionType fType;
-
-      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {}, {});
-      rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
-    }
-    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+    fwdDeclareSendFuncs(rewriter, module, intTy, mrTy);
 
     auto initOffset = op.getOffsetValue();
     if (!initOffset) {
@@ -280,6 +283,7 @@ public:
     }
 
     // Send flow: copy, start, wait
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
     rewriter.create<CallOp>(loc, name, intTy,
                             SmallVector<Value, 2>({casted, initOffset}));
 
@@ -327,27 +331,7 @@ public:
     auto myType = inputType.getElementType();
     Type mrTy = UnrankedMemRefType::get(myType, 0);
 
-    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, dst);
-
-    // Forward declare functions if it hasn't already been
-    if (!opFunc) { // TODO: check for the other function names
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
-
-      MLIRContext *ctx = rewriter.getContext();
-      Location uLoc = rewriter.getUnknownLoc();
-      FunctionType fType;
-
-      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, kDmaStartRecv, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {}, {});
-      rewriter.create<FuncOp>(uLoc, kDmaWaitRecv, fType).setPrivate();
-    }
-    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+    fwdDeclareRecvFuncs(rewriter, module, intTy, mrTy);
 
     auto initOffset = op.getOffsetValue();
     if (!initOffset) {
@@ -355,23 +339,58 @@ public:
           rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 0));
     }
 
-    int numElements = inputType.getNumElements();
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, dst);
     int bitWidth = inputType.getElementTypeBitWidth();
-    int bytes = numElements * bitWidth / 8;
+    if (inputType.hasStaticShape()) {
+      llvm::errs() << "RecvToAXI4MLIRCall: inputType has static shape\n";
+      int numElements = inputType.getNumElements();
+      int bytes = numElements * bitWidth / 8;
 
-    Value nElements = rewriter.create<arith::ConstantOp>(
-        loc, IntegerAttr::get(intTy, numElements));
+      Value nElements = rewriter.create<arith::ConstantOp>(
+          loc, IntegerAttr::get(intTy, numElements));
 
-    // Recv flow: start, wait, copy
-    rewriter.create<CallOp>(loc, kDmaStartRecv, intTy,
-                            SmallVector<Value, 2>({nElements, initOffset}));
-    rewriter.create<CallOp>(loc, kDmaWaitRecv, TypeRange());
-    rewriter.create<CallOp>(loc, name, intTy,
-                            SmallVector<Value, 2>({casted, initOffset}));
+      // Recv flow: start, wait, copy
+      rewriter.create<CallOp>(loc, kDmaStartRecv, intTy,
+                              SmallVector<Value, 2>({nElements, initOffset}));
+      rewriter.create<CallOp>(loc, kDmaWaitRecv, TypeRange());
+      rewriter.create<CallOp>(loc, name, intTy,
+                              SmallVector<Value, 2>({casted, initOffset}));
 
-    Value resultOffset =
-        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
-    rewriter.replaceOp(op, {resultOffset});
+      Value resultOffset = rewriter.create<arith::ConstantOp>(
+          loc, IntegerAttr::get(intTy, bytes));
+      rewriter.replaceOp(op, {resultOffset});
+
+    } else {
+      llvm::errs() << "RecvToAXI4MLIRCall: inputType has dynamic shape\n";
+
+      // First get the number of elements from dynamic sizes
+      memref::SubViewOp subViewOp =
+          dyn_cast<memref::SubViewOp>(dst.getDefiningOp());
+      if (!subViewOp) {
+        llvm::errs() << "RecvToAXI4MLIRCall: input is not a subview\n";
+        return failure();
+      }
+      Value nElements =
+          getNumElements(rewriter, loc, subViewOp, inputType, intTy);
+
+      rewriter.create<CallOp>(loc, kDmaStartRecv, intTy,
+                              SmallVector<Value, 2>({nElements, initOffset}));
+      rewriter.create<CallOp>(loc, kDmaWaitRecv, TypeRange());
+      rewriter.create<CallOp>(loc, name, intTy,
+                              SmallVector<Value, 2>({casted, initOffset}));
+
+      // If many actions are chained, they are placed in order in the DMA,
+      // thus the offset is the size of the previous action.
+      Value resultOffset = nElements;
+      Value bitWidthV = rewriter.create<arith::ConstantOp>(
+          loc, IntegerAttr::get(intTy, bitWidth));
+      resultOffset =
+          rewriter.create<arith::MulIOp>(loc, resultOffset, bitWidthV);
+      Value eight =
+          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 8));
+      resultOffset = rewriter.create<arith::DivSIOp>(loc, resultOffset, eight);
+      rewriter.replaceOp(op, {resultOffset});
+    }
 
     return success();
   }
