@@ -83,6 +83,55 @@ public:
   }
 };
 
+// Forward declare functions for SendOp
+static void fwdDeclareSendFuncs(PatternRewriter &rewriter, Operation *module,
+                                Type intTy, Type mrTy) {
+
+  // TODO: Name has to match memref type
+  // TODO: This is giving the i32 name but memref may be f32
+  auto name = kCopyToInbufferI32;
+  auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
+      SymbolTable::lookupSymbolIn(module, name));
+  if (!opFunc) { // TODO: check for the other function names
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(&module->getRegion(0).front());
+
+    MLIRContext *ctx = rewriter.getContext();
+    Location uLoc = rewriter.getUnknownLoc();
+    FunctionType fType;
+
+    fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
+    rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
+
+    fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
+    rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
+
+    fType = FunctionType::get(ctx, {}, {});
+    rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
+  }
+  assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
+}
+
+// Create ops to get number of elements in dynamic sized SubViewOp
+static Value getNumElements(PatternRewriter &rewriter, Location loc,
+                            memref::SubViewOp subViewOp, MemRefType inputType,
+                            Type intTy) {
+  Value nElements;
+
+  SmallVector<Value, 4> sizes;
+  for (unsigned idx = 0; idx < inputType.getRank(); ++idx) {
+    sizes.push_back(subViewOp.getDynamicSizes()[idx]);
+  }
+
+  // Create as many arith::MulIOps as needed to calculate # of elements
+  nElements = sizes[0];
+  for (unsigned i = 1; i < inputType.getRank(); ++i) {
+    nElements = rewriter.create<arith::MulIOp>(loc, nElements, sizes[i]);
+  }
+  nElements = rewriter.create<arith::IndexCastOp>(loc, intTy, nElements);
+  return nElements;
+}
+
 class SendToAXI4MLIRCall : public OpRewritePattern<accel::SendOp> {
 public:
   using OpRewritePattern<accel::SendOp>::OpRewritePattern;
@@ -93,11 +142,7 @@ public:
     auto module = SymbolTable::getNearestSymbolTable(op);
     Location loc = op->getLoc();
 
-    // TODO: Name has to match memref type
-    // TODO: This is giving the i32 name but memref may be f32
     auto name = kCopyToInbufferI32;
-    auto opFunc = dyn_cast_or_null<SymbolOpInterface>(
-        SymbolTable::lookupSymbolIn(module, name));
 
     Type intTy = rewriter.getI32Type();
     Value input = op.getInput();
@@ -107,28 +152,9 @@ public:
     auto myType = inputType.getElementType();
     Type mrTy = UnrankedMemRefType::get(myType, 0);
 
-    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
+    fwdDeclareSendFuncs(rewriter, module, intTy, mrTy);
 
-    // Forward declare functions if it hasn't already been
-    if (!opFunc) { // TODO: check for the other function names
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&module->getRegion(0).front());
-
-      MLIRContext *ctx = rewriter.getContext();
-      Location uLoc = rewriter.getUnknownLoc();
-      FunctionType fType;
-
-      fType = FunctionType::get(ctx, {mrTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, name, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {intTy, intTy}, {intTy});
-      rewriter.create<FuncOp>(uLoc, kDmaStartSend, fType).setPrivate();
-
-      fType = FunctionType::get(ctx, {}, {});
-      rewriter.create<FuncOp>(uLoc, kDmaWaitSend, fType).setPrivate();
-    }
-    assert(isa<FunctionOpInterface>(SymbolTable::lookupSymbolIn(module, name)));
-
+    // TODO: Not sure if getOffestValue is working
     auto initOffset = op.getOffsetValue();
     if (!initOffset) {
       initOffset =
@@ -136,6 +162,7 @@ public:
     }
 
     // Send flow: copy, start, wait
+    Value casted = rewriter.create<memref::CastOp>(loc, mrTy, input);
     auto c = rewriter.create<CallOp>(
         loc, name, intTy, SmallVector<Value, 2>({casted, initOffset}));
 
@@ -161,24 +188,14 @@ public:
       llvm::errs() << "SendToAXI4MLIRCall: inputType has dynamic shape\n";
 
       // First get the number of elements from dynamic sizes
-      Value nElements;
       memref::SubViewOp subViewOp =
           dyn_cast<memref::SubViewOp>(input.getDefiningOp());
       if (!subViewOp) {
         llvm::errs() << "SendToAXI4MLIRCall: input is not a subview\n";
         return failure();
       }
-      SmallVector<Value, 4> sizes;
-      for (unsigned idx = 0; idx < inputType.getRank(); ++idx) {
-        sizes.push_back(subViewOp.getDynamicSizes()[idx]);
-      }
-
-      // Create as many arith::MulIOps as needed to calculate # of elements
-      nElements = sizes[0];
-      for (unsigned i = 1; i < inputType.getRank(); ++i) {
-        nElements = rewriter.create<arith::MulIOp>(loc, nElements, sizes[i]);
-      }
-      nElements = rewriter.create<arith::IndexCastOp>(loc, intTy, nElements);
+      Value nElements =
+          getNumElements(rewriter, loc, subViewOp, inputType, intTy);
 
       rewriter.create<CallOp>(loc, kDmaStartSend, intTy,
                               SmallVector<Value, 2>({nElements, initOffset}));
