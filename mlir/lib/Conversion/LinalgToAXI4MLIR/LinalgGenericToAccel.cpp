@@ -263,7 +263,7 @@ public:
     // if loop_offset = 0, then add to the innermost loop body
     if (loop_offset == 0) {
       // Set insertion point before the operation
-      op->emitWarning() << "Offset is 0, calling lambda";
+      // op->emitWarning() << "Offset is 0, calling lambda";
       rewriter.setInsertionPoint(op);
       lambda();
       return;
@@ -277,7 +277,7 @@ public:
 
     switch (loop_offset) {
     case -1: {
-      op->emitWarning() << "Offset is -1, calling lambda";
+      // op->emitWarning() << "Offset is -1, calling lambda";
       if (parent_loop_op) {
         // Set insertion point right before the scf::ForOp
         rewriter.setInsertionPoint(parent_loop_op);
@@ -287,7 +287,7 @@ public:
     }
     case 1: {
       if (parent_loop_op) {
-        op->emitWarning() << "Offset is 1, calling lambda";
+        // op->emitWarning() << "Offset is 1, calling lambda";
         // Set insertion point before the terminator of parent loop operation
         rewriter.setInsertionPoint(parent_loop_op->getBlock()->getTerminator());
       }
@@ -483,9 +483,9 @@ public:
     Location loc = op->getLoc();
     auto opcodeMap =
         op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
-    llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
-    op->emitWarning() << "Number of opcodes in the map: "
-                      << opcodeMap.getNumOpcodes() << "!";
+    // llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
+    // op->emitWarning() << "Number of opcodes in the map: "
+    //                   << opcodeMap.getNumOpcodes() << "!";
 
     std::vector<std::pair<int, SmallVector<StringRef, 3>>> zipped;
     std::transform(loop_offsets.begin(), loop_offsets.end(),
@@ -499,18 +499,18 @@ public:
       SmallVector<StringRef, 3> list_of_opcode_ids = pair.second;
       for (auto &&opcode_id : list_of_opcode_ids) {
         // Print id and position of opcode in the map
-        op->emitWarning() << "Opcode id: " << opcode_id
-                          << " in map at position "
-                          << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
+        // op->emitWarning() << "Opcode id: " << opcode_id
+        //                   << " in map at position "
+        //                   << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
         assert(opcodeMap.getOpcodeListPosition(opcode_id) != -1 &&
                "Opcode id not found in the map!");
         OpcodeList opcodeList = opcodeMap.getOpcodeList(opcode_id);
         // Print number of opcodes in the list
-        op->emitWarning() << "Number of opcodes in the list: "
-                          << opcodeList.getNumActions() << "!";
+        // op->emitWarning() << "Number of opcodes in the list: "
+        //                   << opcodeList.getNumActions() << "!";
         // Print id and dump of each opcode in the list
-        llvm::errs() << "Opcode id: " << opcode_id << " "
-                     << "OpcodeListDump: " << opcodeList << "\n";
+        // llvm::errs() << "Opcode id: " << opcode_id << " "
+        //              << "OpcodeListDump: " << opcodeList << "\n";
 
         Value initialOffset = nullptr;
 
