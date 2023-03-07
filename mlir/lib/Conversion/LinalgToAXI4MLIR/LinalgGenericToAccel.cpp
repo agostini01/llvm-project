@@ -613,8 +613,74 @@ public:
                   }
                   rewriter.replaceOp(subViewOp, newSubView);
 
-                  initialOffset = rewriter.create<accel::RecvOp>(
-                      loc, rewriter.getI32Type(), newSubView, initialOffset);
+                  // Check if this operand is on the list of operands to be
+                  // accumulated on the CPU
+
+                  // for (Value operand : op.outputs()) {
+                  if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu)
+                          .getValue()) {
+                    MemRefType sVmrType =
+                        newSubView.getType().cast<MemRefType>();
+
+                    // TODO: WIP now
+                    // SmallVector<int64_t, 2> shape;
+
+                    // // Iterate from zero to rank-1 and append accelDim to
+                    // shape for (unsigned i = 0; i < sVmrType.getRank() - 1;
+                    // i++) {
+                    //   op->emitWarning() << "Accumulating on CPU!";
+                    //   shape.push_back(
+                    //       op->getAttrOfType<ArrayAttr>(kAccel_accel_tile_size)
+                    //           .getValue()[0]); // TODO: Get the correct
+                    //                            // dimension
+                    // }
+                    // op->emitWarning() << "Accumulating on CPU!";
+                    // // Transform SmallVector in ArrayRef
+                    // ArrayRef<int64_t> shapeRef(shape);
+                    // // MemRefType mrType = rewriter.getMemRefType(
+                    // //                         sVmrType.getShape(),
+                    // //                         sVmrType.getElementType());
+                    // MemRefType mrType =
+                    //     MemRefType::get(shapeRef, sVmrType.getElementType());
+                    MemRefType mrType =
+                        MemRefType::get({8, 8}, sVmrType.getElementType());
+                    Value tMr = rewriter.create<memref::AllocaOp>(loc, mrType);
+                    initialOffset = rewriter.create<accel::RecvOp>(
+                        loc, rewriter.getI32Type(), tMr,
+                        initialOffset); // TODO: Initial offset? Multiple
+                                        // outputs?
+
+                    // Create affine maps and attributes for CPU accumulation
+                    MemRefType tmpMrType = tMr.getType().cast<MemRefType>();
+                    unsigned rank = tmpMrType.getRank();
+                    SmallVector<AffineMap, 3> indexingMaps(
+                        /*1 inputs, 1 (inplace) output*/ 2,
+                        rewriter.getMultiDimIdentityMap(rank));
+                    auto loopsAttr = SmallVector<StringRef>(
+                        rank, getParallelIteratorTypeName());
+
+                    rewriter.create<linalg::GenericOp>(
+                        loc,
+                        /*resultTypes=*/TypeRange(),
+                        /*inputs=*/tMr,
+                        /*outputs=*/newSubView,
+                        /*indexingMaps=*/indexingMaps,
+                        /*iteratorTypes=*/loopsAttr,
+                        /*bodyBuilder=*/
+                        [&](OpBuilder &nestedBuilder, Location nestedLoc,
+                            ValueRange args) {
+                          Value added = nestedBuilder.create<arith::AddIOp>(
+                              loc, args[0], args[1]);
+                          nestedBuilder.create<linalg::YieldOp>(nestedLoc,
+                                                                added);
+                        });
+                  } else {
+                    //     initialOffset = rewriter.create<accel::RecvOp>(
+                    //         loc, rewriter.getI32Type(), operand,
+                    //         initialOffset);
+                    initialOffset = rewriter.create<accel::RecvOp>(
+                        loc, rewriter.getI32Type(), newSubView, initialOffset);
+                  }
                 });
             break;
           }
