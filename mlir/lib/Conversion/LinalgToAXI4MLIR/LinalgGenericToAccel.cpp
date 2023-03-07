@@ -501,7 +501,8 @@ public:
         // Print id and position of opcode in the map
         // op->emitWarning() << "Opcode id: " << opcode_id
         //                   << " in map at position "
-        //                   << opcodeMap.getOpcodeListPosition(opcode_id) << "!";
+        //                   << opcodeMap.getOpcodeListPosition(opcode_id) <<
+        //                   "!";
         assert(opcodeMap.getOpcodeListPosition(opcode_id) != -1 &&
                "Opcode id not found in the map!");
         OpcodeList opcodeList = opcodeMap.getOpcodeList(opcode_id);
@@ -617,38 +618,28 @@ public:
                   // accumulated on the CPU
 
                   // for (Value operand : op.outputs()) {
+                  // TODO: This is looking into the boolean. Make it look into
+                  // the operand ID of CPU accumulation list
                   if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu)
                           .getValue()) {
                     MemRefType sVmrType =
                         newSubView.getType().cast<MemRefType>();
 
-                    // TODO: WIP now
-                    // SmallVector<int64_t, 2> shape;
+                    SmallVector<int64_t, 2> shape;
+                    for (unsigned i = 0; i < sVmrType.getRank(); i++) {
+                      auto accelDim =
+                          op->getAttrOfType<ArrayAttr>(kAccel_accel_tile_size);
 
-                    // // Iterate from zero to rank-1 and append accelDim to
-                    // shape for (unsigned i = 0; i < sVmrType.getRank() - 1;
-                    // i++) {
-                    //   op->emitWarning() << "Accumulating on CPU!";
-                    //   shape.push_back(
-                    //       op->getAttrOfType<ArrayAttr>(kAccel_accel_tile_size)
-                    //           .getValue()[0]); // TODO: Get the correct
-                    //                            // dimension
-                    // }
-                    // op->emitWarning() << "Accumulating on CPU!";
-                    // // Transform SmallVector in ArrayRef
-                    // ArrayRef<int64_t> shapeRef(shape);
-                    // // MemRefType mrType = rewriter.getMemRefType(
-                    // //                         sVmrType.getShape(),
-                    // //                         sVmrType.getElementType());
-                    // MemRefType mrType =
-                    //     MemRefType::get(shapeRef, sVmrType.getElementType());
+                      // TODO: Support multi-dimensions
+                      shape.push_back(accelDim[0].cast<IntegerAttr>().getInt());
+                    }
+                    // Transform SmallVector in ArrayRef
+                    ArrayRef<int64_t> shapeRef(shape);
                     MemRefType mrType =
-                        MemRefType::get({8, 8}, sVmrType.getElementType());
+                        MemRefType::get(shapeRef, sVmrType.getElementType());
                     Value tMr = rewriter.create<memref::AllocaOp>(loc, mrType);
                     initialOffset = rewriter.create<accel::RecvOp>(
-                        loc, rewriter.getI32Type(), tMr,
-                        initialOffset); // TODO: Initial offset? Multiple
-                                        // outputs?
+                        loc, rewriter.getI32Type(), tMr, initialOffset);
 
                     // Create affine maps and attributes for CPU accumulation
                     MemRefType tmpMrType = tMr.getType().cast<MemRefType>();
