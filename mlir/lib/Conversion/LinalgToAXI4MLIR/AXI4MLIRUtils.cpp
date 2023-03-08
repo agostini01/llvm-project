@@ -177,11 +177,11 @@ void mlir::populateCommonLinalgTransformationPatterns(
 
   // At this point relevant operations will have the L1 marker
   // Only accelerator tiling is missing
-  if (options.tileSize > 1) {
+  if (options.accelSize > 1) {
     patterns.add<LinalgTilingPattern>(
         GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes(
-            {options.tileSize, options.tileSize, options.tileSize}),
+            {options.accelSize, options.accelSize, options.accelSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
                                    StringAttr::get(ctx, "GENACCEL")));
 
@@ -292,11 +292,11 @@ void mlir::applyPatterns(FuncOp funcOp,
 
   // At this point relevant operations will have the L1 marker
   // Only accelerator tiling is missing
-  if (options.tileSize > 1) {
+  if (options.accelSize > 1) {
     patterns.add<LinalgTilingPattern>(
         GenericOp::getOperationName(), ctx,
         LinalgTilingOptions().setTileSizes(
-            {options.tileSize, options.tileSize, options.tileSize}),
+            {options.accelSize, options.accelSize, options.accelSize}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
                                    StringAttr::get(ctx, "GENACCEL")));
 
@@ -312,7 +312,7 @@ void mlir::applyPatterns(FuncOp funcOp,
 }
 
 void AccelTransformationOptions::dump() const {
-  llvm::errs() << "tileSize: " << tileSize << "\n"
+  llvm::errs() << "accelSize: " << accelSize << "\n"
                << "dmaAddress\t\t " << dmaAddress << "\n"
                << "dmaInputAddress\t\t " << dmaInputAddress << "\n"
                << "dmaInputBufferSize\t " << dmaInputBufferSize << "\n"

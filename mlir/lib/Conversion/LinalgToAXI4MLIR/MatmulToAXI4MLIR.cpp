@@ -168,7 +168,7 @@ static void generateRuntime(linalg::GenericOp op,
 
     // Create temp memref - same as accelerator tile size
     auto tmpMrType =
-        MemRefType::get({options.tileSize, options.tileSize}, myType);
+        MemRefType::get({options.accelSize, options.accelSize}, myType);
     auto tMr = b.create<memref::AllocaOp>(tmpMrType);
     tmpMrAndCast.push_back(tMr);
 
@@ -259,7 +259,7 @@ struct ConvertMatmulToAXI4MLIRPass
   ///
   /// Must manually set the AccelTransformationOptions options
   ConvertMatmulToAXI4MLIRPass(const AccelTransformationOptions &options) {
-    this->tileSize = options.tileSize;
+    this->accelSize = options.accelSize;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
     this->dmaInputBufferSize = options.dmaInputBufferSize;
@@ -284,7 +284,7 @@ struct ConvertMatmulToAXI4MLIRPass
   }
 
   void setOptions(AccelTransformationOptions &options) {
-    options.tileSize = this->tileSize;
+    options.accelSize = this->accelSize;
     options.dmaAddress = this->dmaAddress;
     options.dmaInputAddress = this->dmaInputAddress;
     options.dmaInputBufferSize = this->dmaInputBufferSize;

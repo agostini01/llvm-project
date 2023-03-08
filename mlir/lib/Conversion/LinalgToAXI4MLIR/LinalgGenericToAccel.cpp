@@ -43,6 +43,7 @@ const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
 const StringLiteral kAccel_dmaOuputAddress = "accel_dmaOutputAddress";
 const StringLiteral kAccel_dmaOuputBufferSize = "accel_dmaOutputBufferSize";
 const StringLiteral kAccel_acc_on_cpu = "accel_acc_on_cpu";
+const StringLiteral kAccel_accumulate_on_cpu = "accel_accumulate_on_cpu";
 const StringLiteral kAccel_opcode_map = "accel_opcode_map";
 const StringLiteral kAccel_opcode_map_str = "accel_opcode_map_str";
 const StringLiteral kAccel_opcode_flow = "accel_opcode_flow";
@@ -140,7 +141,8 @@ public:
     // as string
     std::string s0 = options.opcodeMap;
     StringRef opcodeMapStr = prepStringOption(s0);
-    if (opcodeMapStr == "") {
+    if (opcodeMapStr == "" && !op->getAttr(kAccel_opcode_map_str)) {
+      op->emitWarning("No opcode map attribute found, skipping");
       filter.replaceLinalgTransformationFilter(rewriter, op);
       rewriter.finalizeRootUpdate(op);
       return success();
@@ -204,7 +206,13 @@ public:
 
     // Accelerator Tile Size Attribute
     setAttrIfEmpty(op, kAccel_accel_tile_size, [&]() {
-      op->setAttr(kAccel_accel_tile_size, getArrayAttr(options.tileSize));
+      op->setAttr(kAccel_accel_tile_size,
+                  rewriter.getI32IntegerAttr(options.accelSize));
+    });
+
+    // List of operand ids to accumulate on cpu
+    setAttrIfEmpty(op, kAccel_accumulate_on_cpu, [&]() {
+      op->setAttr(kAccel_accumulate_on_cpu, getArrayAttr(options.accOnCpu));
     });
 
     filter.replaceLinalgTransformationFilter(rewriter, op);
@@ -481,6 +489,7 @@ public:
               SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
 
     Location loc = op->getLoc();
+    op->emitWarning() << "Adding accel.send and accel.recv operations...";
     auto opcodeMap =
         op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
     // llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
@@ -614,24 +623,32 @@ public:
                   }
                   rewriter.replaceOp(subViewOp, newSubView);
 
-                  // Check if this operand is on the list of operands to be
-                  // accumulated on the CPU
-
-                  // for (Value operand : op.outputs()) {
-                  // TODO: This is looking into the boolean. Make it look into
-                  // the operand ID of CPU accumulation list
-                  if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu)
-                          .getValue()) {
+                  // Generate accumulation on CPU if needed.
+                  bool acc_on_cpu = false;
+                  if (op->getAttrOfType<BoolAttr>(kAccel_acc_on_cpu).getValue())
+                    acc_on_cpu = true;
+                  else {
+                    // Set acc_on_cpu true if the operand is in the list of
+                    // operands to be accumulated.
+                    for (auto &&operand : op->getAttrOfType<ArrayAttr>(
+                             kAccel_accumulate_on_cpu)) {
+                      if (operand.cast<IntegerAttr>().getInt() == id) {
+                        acc_on_cpu = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (acc_on_cpu) {
                     MemRefType sVmrType =
                         newSubView.getType().cast<MemRefType>();
 
                     SmallVector<int64_t, 2> shape;
                     for (unsigned i = 0; i < sVmrType.getRank(); i++) {
-                      auto accelDim =
-                          op->getAttrOfType<ArrayAttr>(kAccel_accel_tile_size);
+                      auto accelSize = op->getAttrOfType<IntegerAttr>(
+                          kAccel_accel_tile_size);
 
                       // TODO: Support multi-dimensions
-                      shape.push_back(accelDim[0].cast<IntegerAttr>().getInt());
+                      shape.push_back(accelSize.getInt());
                     }
                     // Transform SmallVector in ArrayRef
                     ArrayRef<int64_t> shapeRef(shape);
@@ -825,13 +842,14 @@ struct ConvertLinalgGenericToAccelPass
   /// Not used when the pass is created from commandline, helpful for creating
   /// this pass in code
   ConvertLinalgGenericToAccelPass(const AccelTransformationOptions &options) {
-    this->tileSize = options.tileSize;
+    this->accelSize = options.accelSize;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
     this->dmaInputBufferSize = options.dmaInputBufferSize;
     this->dmaOutputAddress = options.dmaOutputAddress;
     this->dmaOutputBufferSize = options.dmaOutputAddress;
-    this->flowCpuAcc = options.flowCpuAcc;
+    this->accOnCpu = options.accOnCpu;
+    this->flowCpuAcc = options.flowCpuAcc; // TODO: will be deprecated
     this->numberOfCaches = options.numberOfCaches;
     this->cacheSizes = options.cacheSizes;
     this->tileSizes = options.tileSizes;
@@ -847,13 +865,14 @@ struct ConvertLinalgGenericToAccelPass
   void runOnOperation() override;
 
   void setOptions(AccelTransformationOptions &options) {
-    options.tileSize = this->tileSize;
+    options.accelSize = this->accelSize;
     options.dmaAddress = this->dmaAddress;
     options.dmaInputAddress = this->dmaInputAddress;
     options.dmaInputBufferSize = this->dmaInputBufferSize;
     options.dmaOutputAddress = this->dmaOutputAddress;
     options.dmaOutputBufferSize = this->dmaOutputBufferSize;
-    options.flowCpuAcc = this->flowCpuAcc;
+    options.accOnCpu = this->accOnCpu;
+    options.flowCpuAcc = this->flowCpuAcc; // TODO: will be deprecated
     options.numberOfCaches = this->numberOfCaches;
     options.cacheSizes = this->cacheSizes;
     options.tileSizes = this->tileSizes;

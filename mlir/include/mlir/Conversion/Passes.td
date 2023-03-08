@@ -855,7 +855,11 @@ def AXI4MLIRDMAOptions {
 def AXI4MLIRFlowOptions {
   list<Option> options = [
     Option<"flowCpuAcc", "flow-cpu-accumulation", "bool", /*default=*/"false",
-           "Decide if code to accumulate on the CPU must be generated">,
+           "Controls generation of code for CPU accumulation of accel.recv ops."
+           "Overrides acc-on-cpu, genering code for every accel.recv">,
+    ListOption<"accOnCpu", "acc-on-cpu", "unsigned", 
+               "Index of buffers to generate code to accumulate on the CPU.",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"numberOfCaches", "number-of-caches", "unsigned", /*default=*/"2",
            "Number of cache levels in the hierachy for CPU tiling purposes. "
            "Default: 2. "
@@ -878,7 +882,7 @@ def AXI4MLIRFlowOptions {
 
 def AXI4MLIRAcceleratorOptions {
   list<Option> options = [
-    Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
+    Option<"accelSize", "accel-tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
   ];
 }
@@ -915,7 +919,7 @@ def ConvertMatmulToAXI4MLIR : Pass<"test-matmul-to-axi4mlir", "ModuleOp"> {
     "LLVM::LLVMDialect",
   ];
   let options = [
-    Option<"tileSize", "accel-tile-size", "unsigned", /*default=*/"4",
+    Option<"accelSize", "accel-tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
   ] # AXI4MLIRDMAOptions.options # AXI4MLIRFlowOptions.options;
 }

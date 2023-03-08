@@ -19,7 +19,7 @@ class ModuleOp;
 
 struct AccelTransformationOptions {
   /// Accelerator Tile Size information
-  unsigned tileSize = 1;
+  unsigned accelSize = 1;
 
   /// DMA Information
   unsigned dmaAddress = 0;
@@ -29,6 +29,9 @@ struct AccelTransformationOptions {
   unsigned dmaOutputBufferSize = 100000;
 
   /// Flow information
+
+  /// IDs of opcodes that should be accumulated on the CPU
+  ArrayRef<unsigned> accOnCpu;
   bool flowCpuAcc = false;
   unsigned numberOfCaches = false;
   ArrayRef<unsigned> cacheSizes;
