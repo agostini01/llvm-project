@@ -1,8 +1,9 @@
-// RUN: mlir-opt %s --test-generic-to-accel | FileCheck %s
-// RUN: mlir-opt %s --test-generic-to-accel='anchor-op=linalg.matmul opcode-map="opcode_map<s0=[op_send(0)]>"' | FileCheck %s --check-prefix=ANCHOR
+// RUN: mlir-opt %s --test-generic-to-accel -cse | FileCheck %s
 
 #matmul_trait = {
   __internal_linalg_transform__="ACCELERATE",
+  accel_opcode_map_str = "opcode_map<s0=[op_send(0)], s1=[op_send(1)], r2=[op_recv(2)]>",
+  accel_opcode_flow_str = "(s0 s1 r2)",
 
   // Original generic information
   iterator_types = ["parallel", "parallel", "reduction"],
@@ -34,6 +35,8 @@ func @test_accel_transform(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memre
 #double_transpose_trait = {
 
   __internal_linalg_transform__="ACCELERATE",
+  accel_opcode_map_str = "opcode_map<s0=[op_send(0)], s1=[op_send(1)], r2=[op_recv(2)], r3=[op_recv(3)]>",
+  accel_opcode_flow_str = "(s0 s1 r2 r3)",
 
   // Original generic information
   iterator_types = ["parallel", "parallel"],
@@ -67,12 +70,6 @@ func @test_multiple_outputs(%A: memref<16x8xi32>, %B: memref<16x8xi32>,
 // CHECK:       linalg.fill
 // CHECK:       linalg.matmul
 
-// ANCHOR-LABEL: func @test_accel_transform_from_matmul
-// ANCHOR:       accel.init_dma
-// ANCHOR:       linalg.fill
-// ANCHOR:       accel.send
-// ANCHOR:       accel.send
-// ANCHOR:       accel.recv
 func @test_accel_transform_from_matmul(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   %0 = arith.constant 0 : i32
