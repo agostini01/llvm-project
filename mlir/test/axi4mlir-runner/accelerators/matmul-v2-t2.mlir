@@ -1,5 +1,5 @@
 // RUN: mlir-opt %s \
-// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,2,1 opcode-map="opcode_map<s0=[op_send_literal(1), op_send(0)], s1c=[op_send_literal(6), op_send(1)], r=[op_recv(2)]>" opcode-flow="(s0 (s1c))" accel-tile-size=4' --cse \
+// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,2,1 opcode-map="opcode_map<s0=[op_send_literal(1), op_send(0)], s1c=[op_send_literal(6), op_send(1)], r=[op_recv(2)]>" opcode-flow="(s0 (s1c r))" accel-tile-size=4 acc-on-cpu=2' --cse \
 // RUN: | FileCheck %s
 
 
