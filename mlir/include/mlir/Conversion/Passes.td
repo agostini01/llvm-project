@@ -893,6 +893,8 @@ def AXI4MLIRAnchorOptions {
       "Which func op is the anchor to latch on.">,
     Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
       "Which linalg op within the func is the anchor to latch on.">,
+    Option<"anchorFilterName", "anchor-filter", "std::string", /*default=*/"",
+      "Only trigger on LinalgOps with attribute __accel_transform__=<string>.">,
   ];
 }
 

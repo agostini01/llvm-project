@@ -197,7 +197,7 @@ public:
     // create a lambda function that uses isDynamicSize(idx) and returns true if
     // one of the sizes is dynamic
     if (inputType.hasStaticShape()) {
-      llvm::errs() << "SendToAXI4MLIRCall: inputType has static shape\n";
+      // llvm::errs() << "SendToAXI4MLIRCall: inputType has static shape\n";
       int numElements = inputType.getNumElements();
       int bytes = numElements * bitWidth / 8;
 
@@ -211,13 +211,13 @@ public:
           loc, IntegerAttr::get(intTy, bytes));
       rewriter.replaceOp(op, {resultOffset});
     } else {
-      llvm::errs() << "SendToAXI4MLIRCall: inputType has dynamic shape\n";
+      // llvm::errs() << "SendToAXI4MLIRCall: inputType has dynamic shape\n";
 
       // First get the number of elements from dynamic sizes
       memref::SubViewOp subViewOp =
           dyn_cast<memref::SubViewOp>(input.getDefiningOp());
       if (!subViewOp) {
-        llvm::errs() << "SendToAXI4MLIRCall: input is not a subview\n";
+        // llvm::errs() << "SendToAXI4MLIRCall: input is not a subview\n";
         return failure();
       }
       Value nElements =

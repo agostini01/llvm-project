@@ -36,7 +36,7 @@
 using namespace mlir;
 
 const StringLiteral kLinalgTransformMarker = "__internal_linalg_transform__";
-const StringLiteral kAccelTransformMarker = "__accel_transform__"; // Not used
+const StringLiteral kAccelTransformMarker = "__accel_transform__";
 const StringLiteral kAccel_dmaAddress = "accel_dmaAddress";
 const StringLiteral kAccel_dmaInputAddress = "accel_dmaInputAddress";
 const StringLiteral kAccel_dmaInputBufferSize = "accel_dmaInputBufferSize";
@@ -489,7 +489,7 @@ public:
               SmallVectorImpl<SmallVector<StringRef, 3>> &lists_of_opcode_ids) {
 
     Location loc = op->getLoc();
-    op->emitWarning() << "Adding accel.send and accel.recv operations...";
+    // op->emitWarning() << "Adding accel.send and accel.recv operations...";
     auto opcodeMap =
         op->getAttrOfType<OpcodeMapAttr>(kAccel_opcode_map).getValue();
     // llvm::errs() << "OpcodeMap: " << opcodeMap << "\n";
@@ -857,6 +857,7 @@ struct ConvertLinalgGenericToAccelPass
     this->loopPermutation = options.loopPermutation;
     this->anchorFuncName = options.anchorFuncName;
     this->anchorOpName = options.anchorOpName;
+    this->anchorFilterName = options.anchorFilterName;
     this->opcodeMap = options.opcodeMap;
     this->initFlow = options.initFlow;
     this->opcodeFlow = options.opcodeFlow;
@@ -880,6 +881,7 @@ struct ConvertLinalgGenericToAccelPass
     options.loopPermutation = this->loopPermutation;
     options.anchorFuncName = this->anchorFuncName;
     options.anchorOpName = this->anchorOpName;
+    options.anchorFilterName = this->anchorFilterName;
     options.opcodeMap = this->opcodeMap;
     options.initFlow = this->initFlow;
     options.opcodeFlow = this->opcodeFlow;
@@ -906,6 +908,15 @@ void ConvertLinalgGenericToAccelPass::runOnOperation() {
       return;
 
     functionOp.walk([&](linalg::LinalgOp op) {
+      if (!anchorFilterName.empty()) {
+        // Skip this op if the LinalgOp has kAccelTransformMarker that is not
+        // equal to anchorFilterName
+        if (op->getAttr(kAccelTransformMarker) !=
+            StringAttr::get(ctx, anchorFilterName)) {
+          return;
+        }
+      }
+
       if ((op->getAttr(kLinalgTransformMarker) !=
            StringAttr::get(ctx, "ACCELERATE"))) {
         if ((anchorOpName != op->getName().getStringRef()))

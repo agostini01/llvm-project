@@ -42,6 +42,7 @@ struct AccelTransformationOptions {
   /// Anchor
   std::string anchorFuncName;
   std::string anchorOpName;
+  std::string anchorFilterName;
 
   /// Opcode information
   std::string opcodeMap;
