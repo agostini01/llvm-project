@@ -39,10 +39,71 @@ else()
 
         EXCLUDE_FROM_LIBMLIR
       )
-
       target_include_directories(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/include/)
       set_target_properties(axi_api_v1_sysc PROPERTIES COMPILE_FLAGS "")
       target_link_libraries(axi_api_v1_sysc PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+      # ----------------------------
+      # Matmul accelerator
+      
+      # Same for accelerator v1
+      add_mlir_library(axi_api_v1_sysc_accv1
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_accv1 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_accv1 PROPERTIES COMPILE_FLAGS "-DACC_V1")
+      target_link_libraries(axi_api_v1_sysc_accv1 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+      # Same for accelerator v2
+      add_mlir_library(axi_api_v1_sysc_accv2
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_accv2 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_accv2 PROPERTIES COMPILE_FLAGS "-DACC_V2")
+      target_link_libraries(axi_api_v1_sysc_accv2 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+      # Same for accelerator v3
+      add_mlir_library(axi_api_v1_sysc_accv3
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_accv3 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_accv3 PROPERTIES COMPILE_FLAGS "-DACC_V3")
+      target_link_libraries(axi_api_v1_sysc_accv3 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+      # Same for accelerator v4
+      add_mlir_library(axi_api_v1_sysc_accv4
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_accv4 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_accv4 PROPERTIES COMPILE_FLAGS "-DACC_V4")
+      target_link_libraries(axi_api_v1_sysc_accv4 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+      # ----------------------------
+      # Conv accelerator
+
+      # Same for accelerator v1
+      add_mlir_library(axi_api_v1_sysc_conv_accv1
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_conv_accv1 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_conv_accv1 PROPERTIES COMPILE_FLAGS "-DCONV_V1")
+      target_link_libraries(axi_api_v1_sysc_conv_accv1 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
   endif()
 endif()
 
