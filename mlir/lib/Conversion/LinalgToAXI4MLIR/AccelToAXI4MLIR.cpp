@@ -342,7 +342,7 @@ public:
     Value casted = rewriter.create<memref::CastOp>(loc, mrTy, dst);
     int bitWidth = inputType.getElementTypeBitWidth();
     if (inputType.hasStaticShape()) {
-      llvm::errs() << "RecvToAXI4MLIRCall: inputType has static shape\n";
+      // llvm::errs() << "RecvToAXI4MLIRCall: inputType has static shape\n";
       int numElements = inputType.getNumElements();
       int bytes = numElements * bitWidth / 8;
 
@@ -361,7 +361,7 @@ public:
       rewriter.replaceOp(op, {resultOffset});
 
     } else {
-      llvm::errs() << "RecvToAXI4MLIRCall: inputType has dynamic shape\n";
+      // llvm::errs() << "RecvToAXI4MLIRCall: inputType has dynamic shape\n";
 
       // First get the number of elements from dynamic sizes
       memref::SubViewOp subViewOp =
