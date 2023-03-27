@@ -46,6 +46,8 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
 
   dm.DMA_input_buffer = (int *)dma_input_address;
   dm.DMA_output_buffer = (int *)dma_output_address;
+  dma_input_buffer_size = _dma_input_buffer_size;
+  dma_output_buffer_size = _dma_output_buffer_size;
 
   acc = &dut;
   dmad = &dm;

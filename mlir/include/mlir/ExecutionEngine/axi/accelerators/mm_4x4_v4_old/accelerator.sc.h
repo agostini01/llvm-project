@@ -1,10 +1,6 @@
 #ifndef ACC_H
 #define ACC_H
 
-#define PE_M 4
-#define PE_N 4
-#define PE_K 4
-
 #include "dma_engine.sc.h"
 #define ACCNAME MM_4x4v4
 
@@ -96,22 +92,13 @@ SC_MODULE(ACCNAME) {
 
   void Recv();
 
-  void Compute(sc_int<32>[PE_M][PE_K], sc_int<32>[PE_K][PE_N],
-               sc_int<32>[PE_M][PE_N]);
-
-  void LoadA(sc_int<32>[PE_M][PE_K], int, int, int);
-
-  void LoadB(sc_int<32>[PE_K][PE_N], int, int, int);
-
-  void Store(sc_int<32>[PE_M][PE_N], int, int, int);
+  void Compute(int, int, int, int, int);
 
   void Schedule_Compute();
 
   void Send();
 
   void print_profile();
-
-  int mul_int32(int, int);
 
   SC_HAS_PROCESS(ACCNAME);
 
@@ -165,26 +152,26 @@ void ACCNAME::print_profile() {
 }
 
 void ACCNAME::Recv() {
-
   wait();
   while (1) {
-
     opcode packet(din1.read().data);
     code_extension op_args(din1.read().data, din1.read().data);
     acc_args = op_args;
 
     if (packet.read_A) {
-      unsigned int read_length = op_args.M * op_args.K;
+      unsigned int read_length = op_args.N * op_args.K;
       for (int i = 0; i < read_length; i++) {
         A_buffer[i] = din1.read().data;
+        read_A_len++;
         DWAIT();
       }
     }
 
     if (packet.read_B) {
-      unsigned int read_length = op_args.K * op_args.N;
+      unsigned int read_length = op_args.M * op_args.K;
       for (int i = 0; i < read_length; i++) {
         B_buffer[i] = din1.read().data;
+        read_B_len++;
         DWAIT();
       }
     }
@@ -211,72 +198,31 @@ void ACCNAME::Recv() {
   }
 }
 
-void ACCNAME::LoadA(sc_int<32> A[PE_M][PE_K], int M, int K, int in_stride) {
-  //#pragma HLS inline OFF
-  for (int m = 0; m < PE_M; m++) {
-    for (int k = 0; k < PE_K; k++) {
-      A[m][k] = A_buffer[(M + m) * in_stride + K + k];
-    }
-  }
-}
-
-void ACCNAME::LoadB(sc_int<32> B[PE_K][PE_N], int N, int K, int in_stride) {
-  //#pragma HLS inline OFF
-  for (int n = 0; n < PE_N; n++) {
-    for (int k = 0; k < PE_K; k++) {
-      B[k][n] = B_buffer[(K + k) * in_stride + N + n];
-    }
-  }
-}
-
-void ACCNAME::Compute(sc_int<32> A[PE_M][PE_K], sc_int<32> B[PE_K][PE_N],
-                      sc_int<32> C[PE_M][PE_N]) {
-  //#pragma HLS inline OFF
-  for (int m = 0; m < PE_M; m++) {
-#pragma HLS pipeline
-    for (int n = 0; n < PE_N; n++) {
+void ACCNAME::Compute(int N, int M, int K, int in_stride, int out_stride) {
+  for (int n = 0; n < 4; n++) {
+    for (int m = 0; m < 4; m++) {
       int acc = 0;
-      for (int k = 0; k < PE_K; k++) {
-        int x = A[m][k];
-        int y = B[k][n];
-        acc += mul_int32(x, y);
+      for (int k = 0; k < 4; k++) {
+        int a_data = A_buffer[(N + n) * in_stride + K + k];
+        int b_data = B_buffer[(K + k) * in_stride + M + m];
+        acc += a_data * b_data;
+        compute_C_len++;
       }
-      C[m][n] = acc;
-    }
-  }
-}
-
-void ACCNAME::Store(sc_int<32> C[PE_M][PE_N], int N, int M, int out_stride) {
-  //#pragma HLS inline OFF
-#pragma HLS pipeline
-  for (int m = 0; m < PE_M; m++) {
-    for (int n = 0; n < PE_N; n++) {
-      int C_dex = (N + n) * out_stride + M + m;
-      C_buffer[C_dex] += C[m][n];
+      C_buffer[(N + n) * out_stride + M + m] += acc;
     }
   }
 }
 
 void ACCNAME::Schedule_Compute() {
-  sc_int<32> A[PE_M][PE_K];
-  sc_int<32> B[PE_K][PE_N];
-  sc_int<32> C[PE_M][PE_N];
-#pragma HLS array_partition variable = A complete dim = 2
-#pragma HLS array_partition variable = B complete dim = 0
-#pragma HLS array_partition variable = C complete dim = 2
-
   wait();
   while (1) {
     while (!compute)
       wait();
 
-    for (int k = 0; k < acc_args.K; k += PE_K) {
-      for (int m = 0; m < acc_args.M; m += PE_M) {
-        LoadA(A, m, k, acc_args.K);
-        for (int n = 0; n < acc_args.N; n += PE_N) {
-          LoadB(B, n, k, acc_args.K);
-          Compute(A, B, C);
-          Store(C, n, m, acc_args.N);
+    for (int n = 0; n < acc_args.N; n += 4) {
+      for (int m = 0; m < acc_args.M; m += 4) {
+        for (int k = 0; k < acc_args.K; k += 4) {
+          Compute(n, m, k, acc_args.K, acc_args.M);
         }
       }
     }
@@ -293,16 +239,16 @@ void ACCNAME::Send() {
     while (!send)
       wait();
 
-    for (int m = 0; m < acc_args.M; m++) {
-      for (int n = 0; n < acc_args.N; n++) {
+    for (int n = 0; n < acc_args.N; n++) {
+      for (int m = 0; m < acc_args.M; m++) {
         DATA d;
         d.tlast = false;
         d.data = C_buffer[n * acc_args.M + m];
         if (n + 1 == acc_args.N && m + 1 == acc_args.M)
           d.tlast = true;
         dout1.write(d);
-        wait();
         C_buffer[n * acc_args.M + m] = 0;
+        send_C_len++;
         DWAIT();
       }
     }
@@ -310,7 +256,5 @@ void ACCNAME::Send() {
     wait();
   }
 }
-
-int ACCNAME::mul_int32(int x, int y) { return x * y; }
 
 #endif

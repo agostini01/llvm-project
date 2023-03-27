@@ -4,16 +4,12 @@
 #include "dma_engine.sc.h"
 #define ACCNAME MM_4x4v1
 
-#define M 4
-#define N 4
-#define K 4
-
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;
   sc_in<bool> reset;
-  sc_int<32> inputs[M][K];
-  sc_int<32> weights[K][N];
-  sc_int<32> outputs[M][N];
+  sc_int<32> inputs[4096];
+  sc_int<32> weights[4096];
+  sc_int<32> outputs[4096];
   sc_fifo_in<DATA> din1;
   sc_fifo_out<DATA> dout1;
 
@@ -23,7 +19,7 @@ SC_MODULE(ACCNAME) {
   int read_B_len;
   int compute_C_len;
   int send_C_len;
-  bool verbose = true;
+  bool verbose;
 
 #ifndef __SYNTHESIS__
   sc_signal<bool, SC_MANY_WRITERS> compute;
@@ -41,8 +37,6 @@ SC_MODULE(ACCNAME) {
 
   void print_profile();
 
-  int mul_int32(int, int);
-
   SC_HAS_PROCESS(ACCNAME);
 
   ACCNAME(sc_module_name name_) : sc_module(name_) {
@@ -56,10 +50,10 @@ SC_MODULE(ACCNAME) {
     reset_signal_is(reset, true);
 
     process_blocks = 0;
-    read_A_len = 0;
-    read_B_len = 0;
-    compute_C_len = 0;
-    send_C_len = 0;
+    read_A_len=0;
+    read_B_len=0;
+    compute_C_len=0;
+    send_C_len=0;
     verbose = false;
 
     // #pragma HLS RESOURCE variable=din1 core=AXI4Stream metadata="-bus_bundle
@@ -106,38 +100,32 @@ void ACCNAME::Recv() {
     while (compute)
       wait();
 
-    for (int m = 0; m < M; m++) {
-      // #pragma HLS pipeline
-      for (int k = 0; k < K; k++) {
-        inputs[m][k] = din1.read().data;
-        read_A_len++;
-        DWAIT();
-      }
+    for (int i = 0; i < 16; i++) {
+      inputs[i] = din1.read().data;
+      read_A_len++;
+      DWAIT();
     }
 
-    for (int k = 0; k < K; k++) {
-      // #pragma HLS pipeline
-      for (int n = 0; n < N; n++) {
-        weights[k][n] = din1.read().data;
-        read_B_len++;
-        DWAIT();
-      }
+    for (int i = 0; i < 16; i++) {
+      weights[i] = din1.read().data;
+      read_B_len++;
+      DWAIT();
     }
 
     // DEBUG ONLY
-    if (false) {
+    if (true) {
       cout << "=========================" << endl;
       cout << "BLOCK: " << process_blocks++ << endl;
       cout << "=========================" << endl;
-      for (int m = 0; m < M; m++) {
-        for (int k = 0; k < K; k++)
-          cout << inputs[m][k] << ",";
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++)
+          cout << inputs[i * 4 + j] << ",";
         cout << endl;
       }
       cout << "=========================" << endl;
-      for (int k = 0; k < K; k++) {
-        for (int n = 0; n < N; n++)
-          cout << weights[k][n] << ",";
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++)
+          cout << weights[i * 4 + j] << ",";
         cout << endl;
       }
       cout << "=========================" << endl;
@@ -155,30 +143,25 @@ void ACCNAME::Compute() {
   while (1) {
     while (!compute)
       wait();
-
-    for (int m = 0; m < M; m++) {
-      // #pragma HLS pipeline
-      for (int n = 0; n < N; n++) {
+    for (int i = 0; i < 4; i++) {
+      for (int w = 0; w < 4; w++) {
         int acc = 0;
-        for (int k = 0; k < K; k++) {
-          int x = inputs[m][k];
-          int y = weights[k][n];
-          acc += mul_int32(x, y);
+        for (int d = 0; d < 4; d++) {
+          int x = inputs[i * 4 + d];
+          int y = weights[w * 4 + d];
+          acc += x * y;
           compute_C_len++;
         }
-        outputs[m][n] = acc;
+        outputs[i * 4 + w] = acc;
       }
     }
 
     // DEBUG ONLY
-    if (true) {
+    if (verbose) {
       cout << "=========================" << endl;
-      cout << "Output: " << process_blocks - 1 << endl;
-      cout << "=========================" << endl;
-      cout << "=========================" << endl;
-      for (int m = 0; m < M; m++) {
-        for (int n = 0; n < N; n++)
-          cout << outputs[m][n] << ",";
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++)
+          cout << outputs[i * 4 + j] << ",";
         cout << endl;
       }
       cout << "=========================" << endl;
@@ -197,25 +180,19 @@ void ACCNAME::Send() {
   while (1) {
     while (!send)
       wait();
-
-    for (int m = 0; m < M; m++) {
-      // #pragma HLS pipeline
-      for (int n = 0; n < N; n++) {
-        DATA d;
-        d.tlast = false;
-        if (m == M - 1 && n == N - 1)
-          d.tlast = true;
-        d.data = outputs[m][n];
-        dout1.write(d);
-        send_C_len++;
-        DWAIT();
-      }
+    for (int i = 0; i < 16; i++) {
+      DATA d;
+      d.tlast = false;
+      if (i == 15)
+        d.tlast = true;
+      d.data = outputs[i];
+      dout1.write(d);
+      send_C_len++;
+      DWAIT();
     }
     send.write(false);
     wait();
   }
 }
-
-int ACCNAME::mul_int32(int x, int y) { return x * y; }
 
 #endif
