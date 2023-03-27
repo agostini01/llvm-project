@@ -210,7 +210,8 @@ void ACCNAME::Compute() {
         int acc = 0;
         for (int d = 0; d < 4; d++) {
           int x = inputs[i * 4 + d];
-          int y = weights[w * 4 + d];
+          int y = weights[d * 4 + w];
+          // int y = weights[w * 4 + d];
           acc += x * y;
           compute_C_len++;
         }
