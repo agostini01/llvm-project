@@ -21,11 +21,11 @@
 #include "mlir/ExecutionEngine/axi/accelerators/conv_v1/accelerator.sc.h"
 #elif ACC_V5
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v5/accelerator.sc.h"
-#elif  ACC_V4
+#elif ACC_V4
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v4/accelerator.sc.h"
-#elif  ACC_V3
+#elif ACC_V3
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v3/accelerator.sc.h"
-#elif  ACC_V2
+#elif ACC_V2
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v2/accelerator.sc.h"
 #else
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v1/accelerator.sc.h"
