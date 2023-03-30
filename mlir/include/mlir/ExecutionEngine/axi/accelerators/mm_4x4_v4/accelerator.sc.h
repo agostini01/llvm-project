@@ -53,9 +53,9 @@ struct opcode {
 };
 
 struct code_extension {
-  sc_uint<16> N;
-  sc_uint<16> M;
-  sc_uint<32> K;
+  int N;
+  int M;
+  int K;
 
   code_extension(sc_uint<32> _packetA, sc_uint<32> _packetB) {
     N = _packetA.range(15, 0);
@@ -174,7 +174,7 @@ void ACCNAME::Recv() {
     acc_args = op_args;
 
     if (packet.read_A) {
-      unsigned int read_length = op_args.M * op_args.K;
+      int read_length = op_args.M * op_args.K;
       for (int i = 0; i < read_length; i++) {
         A_buffer[i] = din1.read().data;
         DWAIT();
@@ -182,7 +182,7 @@ void ACCNAME::Recv() {
     }
 
     if (packet.read_B) {
-      unsigned int read_length = op_args.K * op_args.N;
+      int read_length = op_args.K * op_args.N;
       for (int i = 0; i < read_length; i++) {
         B_buffer[i] = din1.read().data;
         DWAIT();
@@ -233,7 +233,7 @@ void ACCNAME::Compute(sc_int<32> A[PE_M][PE_K], sc_int<32> B[PE_K][PE_N],
                       sc_int<32> C[PE_M][PE_N]) {
   //#pragma HLS inline OFF
   for (int m = 0; m < PE_M; m++) {
-#pragma HLS pipeline
+    // #pragma HLS pipeline
     for (int n = 0; n < PE_N; n++) {
       int acc = 0;
       for (int k = 0; k < PE_K; k++) {
@@ -248,7 +248,7 @@ void ACCNAME::Compute(sc_int<32> A[PE_M][PE_K], sc_int<32> B[PE_K][PE_N],
 
 void ACCNAME::Store(sc_int<32> C[PE_M][PE_N], int N, int M, int out_stride) {
   //#pragma HLS inline OFF
-#pragma HLS pipeline
+  // #pragma HLS pipeline
   for (int m = 0; m < PE_M; m++) {
     for (int n = 0; n < PE_N; n++) {
       int C_dex = (N + n) * out_stride + M + m;
@@ -261,9 +261,9 @@ void ACCNAME::Schedule_Compute() {
   sc_int<32> A[PE_M][PE_K];
   sc_int<32> B[PE_K][PE_N];
   sc_int<32> C[PE_M][PE_N];
-#pragma HLS array_partition variable = A complete dim = 2
-#pragma HLS array_partition variable = B complete dim = 0
-#pragma HLS array_partition variable = C complete dim = 2
+  // #pragma HLS array_partition variable = A complete dim = 2
+  // #pragma HLS array_partition variable = B complete dim = 0
+  // #pragma HLS array_partition variable = C complete dim = 2
 
   wait();
   while (1) {

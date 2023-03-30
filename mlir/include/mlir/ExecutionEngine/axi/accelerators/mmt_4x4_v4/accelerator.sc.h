@@ -204,7 +204,7 @@ void ACCNAME::Compute(int N, int M, int K, int in_stride, int out_stride) {
       int acc = 0;
       for (int k = 0; k < 4; k++) {
         int a_data = A_buffer[(N + n) * in_stride + K + k];
-        int b_data = B_buffer[(K + k) * in_stride + M + m];
+        int b_data = B_buffer[(M + m) * in_stride + K + k];
         acc += a_data * b_data;
         compute_C_len++;
       }
