@@ -125,7 +125,45 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   for (int rankp = 0; rankp < rank; ++rankp) {
     indices[rankp] = 0;
     srcStrides[rankp] = mr_strides[rankp];
+
+    // dstStrides for the array is derived from the input mr_sizes
+    // if the rank is 3, and the mr_sizes are 4x8x16, the dstStrides are
+    // 128x16x1
     dstStrides[rankp] = 1;
+    for (int rankp2 = rankp + 1; rankp2 < rank; ++rankp2) {
+      dstStrides[rankp] *= mr_sizes[rankp2];
+    }
+  }
+
+  // DEBUG:
+  // std::cout << "INFO copy_memref_to_array: rank: " << rank << std::endl;
+  // std::cout << "INFO copy_memref_to_array: offset: " << mr_offset <<
+  // std::endl; std::cout << "INFO copy_memref_to_array: sizes: "; for (int
+  // rankp = 0; rankp < rank; ++rankp) {
+  //   std::cout << mr_sizes[rankp] << " ";
+  // }
+  // std::cout << std::endl;
+  // std::cout << "INFO copy_memref_to_array: strides: ";
+  // for (int rankp = 0; rankp < rank; ++rankp) {
+  //   std::cout << mr_strides[rankp] << " ";
+  // }
+  // std::cout << std::endl;
+
+  // create a special case for rank==2 and strides[rank-1]==1 using memcpy
+  if (rank == 2 && mr_strides[rank - 1] == 1) {
+    int64_t size = mr_sizes[rank - 1];        // number of elements
+    int64_t count = mr_sizes[rank - 2];       // number of rows
+    int64_t srcStride = mr_strides[rank - 2]; // stride between rows
+    int64_t dstStride = dstStrides[rank - 2]; // stride between rows
+    const int64_t elemSize = sizeof(T);
+    for (int64_t i = 0; i < count; ++i) {
+      // std::cout << "INFO copy_memref_to_array: memcpy: " << dstPtr << " " <<
+      // srcPtr << " " << size * elemSize << std::endl;
+      memcpy(dstPtr, srcPtr, size * elemSize); // broken
+      srcPtr += srcStride;
+      dstPtr += dstStride;
+    }
+    return;
   }
 
   int64_t volatile readIndex = 0;
@@ -211,7 +249,47 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   for (int rankp = 0; rankp < rank; ++rankp) {
     indices[rankp] = 0;
     dstStrides[rankp] = mr_strides[rankp];
+
+    // srcStrides for the array is derived from the output mr_sizes
+    // if the rank is 3, and the mr_sizes are 4x8x16, the srcStrides are
+    // 128x16x1
     srcStrides[rankp] = 1;
+    for (int rankp2 = rankp + 1; rankp2 < rank; ++rankp2) {
+      srcStrides[rankp] *= mr_sizes[rankp2];
+    }
+  }
+
+  // DEBUG:
+  // std::cout << "INFO copy_memref_to_array: rank: " << rank << std::endl;
+  // std::cout << "INFO copy_memref_to_array: offset: " << mr_offset <<
+  // std::endl; std::cout << "INFO copy_memref_to_array: sizes: "; for (int
+  // rankp = 0; rankp < rank; ++rankp) {
+  //   std::cout << mr_sizes[rankp] << " ";
+  // }
+  // std::cout << std::endl;
+  // std::cout << "INFO copy_memref_to_array: strides: ";
+  // for (int rankp = 0; rankp < rank; ++rankp) {
+  //   std::cout << mr_strides[rankp] << " ";
+  // }
+  // std::cout << std::endl;
+
+  // create a special case for rank==2 and mr_strides[rank-1]==1 using memcpy
+  if (rank == 2 && mr_strides[rank - 1] == 1) {
+    int64_t size = mr_sizes[rank - 1];  // number of elements in one row
+    int64_t nRows = mr_sizes[rank - 2]; // number of rows
+    int64_t dstStride =
+        mr_strides[rank - 2]; // #elements to skip to access next row
+    int64_t srcStride =
+        srcStrides[rank - 2]; // #elements to skip to access next row
+    const int64_t elemSize = sizeof(T);
+    for (int64_t i = 0; i < nRows; ++i) {
+      // std::cout << "INFO copy_memref_to_array: memcpy: " << dstPtr << " " <<
+      // srcPtr << " " << size * elemSize << std::endl;
+      memcpy(dstPtr, srcPtr, size * elemSize); // broken
+      srcPtr += srcStride;
+      dstPtr += dstStride;
+    }
+    return;
   }
 
   int64_t volatile readIndex = 0;
