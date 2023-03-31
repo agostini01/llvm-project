@@ -152,6 +152,8 @@ void ACCNAME::print_profile() {
   cout << "MACs count: " << compute_C_len << endl;
   cout << "Send C data_len: " << send_C_len << endl;
   cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
+  cout << "Executed with :" << __FILE__ << endl;
+  cout << "- - - - - - - - - - - - - - - - - - - - " << endl;;
 }
 
 void ACCNAME::Recv() {
