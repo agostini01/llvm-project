@@ -28,6 +28,7 @@ string(REPLACE "-Wcast-qual" "-Wno-vla-extension" FIXED  ${FIXED})
 
 if(AXI_CROSSCOMPILING)
   message (STATUS "Cross-compiling, SystemC api libraries are disabed")
+  string(APPEND FIXED " -mfpu=neon")
 else()
   message (STATUS "Not Cross-compiling, SystemC api libraries are enabled")
   if(DEFINED ENV{SYSTEMC_HOME})
