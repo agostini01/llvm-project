@@ -128,9 +128,9 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   // }
   // std::cout << std::endl;
 
-#ifdef __arm__
-#define __ARM_NEON__
-  // std::cout << "Enter_NEON _ test" << std::endl;
+#ifdef __arm__SKIP
+// #define __ARM_NEON__ // Not necessary, neon in the compiler flags is enough
+  std::cout << "Enter_NEON _ test" << std::endl;
   if (rank == 2 && mr_strides[rank - 1] == 1) {
     int64_t size = mr_sizes[rank - 1];        // number of elements
     int64_t count = mr_sizes[rank - 2];       // number of rows
@@ -187,6 +187,7 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     //   dstPtr += dstStride;
     // }
     return;
+  }
 #else
   // create a special case for rank==2 and strides[rank-1]==1 using memcpy
   if (rank == 2 && mr_strides[rank - 1] == 1) {
