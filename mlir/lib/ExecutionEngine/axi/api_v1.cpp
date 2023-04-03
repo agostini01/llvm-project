@@ -129,8 +129,7 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   // std::cout << std::endl;
 
 #ifdef __arm__SKIP
-// #define __ARM_NEON__ // Not necessary, neon in the compiler flags is enough
-  std::cout << "Enter_NEON _ test" << std::endl;
+  // std::cout << "Enter_NEON _ test" << std::endl;
   if (rank == 2 && mr_strides[rank - 1] == 1) {
     int64_t size = mr_sizes[rank - 1];        // number of elements
     int64_t count = mr_sizes[rank - 2];       // number of rows
@@ -144,29 +143,46 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     int32x4_t tmp3;
 
     int64_t sizer_16r = (size % 16);
+    int64_t sizer_8r = (size % 8);
     int64_t sizer_4r = (size % 4);
 
     if (sizer_16r == 0) {
+      // std::cout << "Enter_NEON _ 16" << std::endl;
       for (int64_t i = 0; i < count; ++i) {
         int64_t j = 0;
-        for (; j < sizer_16r; j += 16) {
+        for (; j < size; j += 16) {
           // neon vector load and store
           tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
-          tmp1 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 1);
-          tmp2 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 2);
-          tmp3 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 3);
+          tmp1 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 4);
+          tmp2 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 8);
+          tmp3 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 12);
           vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
-          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 1, tmp1);
-          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 2, tmp2);
-          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 3, tmp3);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 4, tmp1);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 8, tmp2);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 12, tmp3);
+        }
+        srcPtr += srcStride;
+        dstPtr += dstStride;
+      }
+    } else if (sizer_8r == 0) {
+      // std::cout << "Enter_NEON _ 8" << std::endl;
+      for (int64_t i = 0; i < count; ++i) {
+        int64_t j = 0;
+        for (; j < size; j += 8) {
+          // neon vector load and store
+          tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
+          tmp1 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 4);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 4, tmp1);
         }
         srcPtr += srcStride;
         dstPtr += dstStride;
       }
     } else if (sizer_4r == 0) {
+      // std::cout << "Enter_NEON _ 4" << std::endl;
       for (int64_t i = 0; i < count; ++i) {
         int64_t j = 0;
-        for (; j < sizer_4r; j += 4) {
+        for (; j < size; j += 4) {
           // neon vector load and store
           tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
           vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
@@ -175,17 +191,13 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
         dstPtr += dstStride;
       }
     } else {
+      // std::cout << "Enter_NEON _ 1" << std::endl;
       for (int64_t i = 0; i < count; ++i) {
         memcpy(dstPtr, srcPtr, size * elemSize);
         srcPtr += srcStride;
         dstPtr += dstStride;
       }
     }
-    // for (int64_t i = 0; i < count; ++i) {
-    //   memcpy(dstPtr, srcPtr, size * elemSize);
-    //   srcPtr += srcStride;
-    //   dstPtr += dstStride;
-    // }
     return;
   }
 #else
@@ -329,6 +341,79 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
   // }
   // std::cout << std::endl;
 
+#ifdef __arm__SKIP
+  // std::cout << "Enter_NEON _ test" << std::endl;
+  if (rank == 2 && mr_strides[rank - 1] == 1) {
+    int64_t size = mr_sizes[rank - 1];        // number of elements
+    int64_t count = mr_sizes[rank - 2];       // number of rows
+    int64_t srcStride = mr_strides[rank - 2]; // stride between rows
+    int64_t dstStride = dstStrides[rank - 2]; // stride between rows
+    const int64_t elemSize = sizeof(T);
+
+    int32x4_t tmp0;
+    int32x4_t tmp1;
+    int32x4_t tmp2;
+    int32x4_t tmp3;
+
+    int64_t sizer_16r = (size % 16);
+    int64_t sizer_8r = (size % 8);
+    int64_t sizer_4r = (size % 4);
+
+    if (sizer_16r == 0) {
+      // std::cout << "Enter_NEON _ 16" << std::endl;
+      for (int64_t i = 0; i < count; ++i) {
+        int64_t j = 0;
+        for (; j < size; j += 16) {
+          // neon vector load and store
+          tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
+          tmp1 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 4);
+          tmp2 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 8);
+          tmp3 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 12);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 4, tmp1);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 8, tmp2);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 12, tmp3);
+        }
+        srcPtr += srcStride;
+        dstPtr += dstStride;
+      }
+    } else if (sizer_8r == 0) {
+      // std::cout << "Enter_NEON _ 8" << std::endl;
+      for (int64_t i = 0; i < count; ++i) {
+        int64_t j = 0;
+        for (; j < size; j += 8) {
+          // neon vector load and store
+          tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
+          tmp1 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 4);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 4, tmp1);
+        }
+        srcPtr += srcStride;
+        dstPtr += dstStride;
+      }
+    } else if (sizer_4r == 0) {
+      // std::cout << "Enter_NEON _ 4" << std::endl;
+      for (int64_t i = 0; i < count; ++i) {
+        int64_t j = 0;
+        for (; j < size; j += 4) {
+          // neon vector load and store
+          tmp0 = vld1q_s32(reinterpret_cast<int32_t *>(srcPtr) + j + 0);
+          vst1q_s32(reinterpret_cast<int32_t *>(dstPtr) + j + 0, tmp0);
+        }
+        srcPtr += srcStride;
+        dstPtr += dstStride;
+      }
+    } else {
+      // std::cout << "Enter_NEON _ 1" << std::endl;
+      for (int64_t i = 0; i < count; ++i) {
+        memcpy(dstPtr, srcPtr, size * elemSize);
+        srcPtr += srcStride;
+        dstPtr += dstStride;
+      }
+    }
+    return;
+  }
+#else
   // create a special case for rank==2 and mr_strides[rank-1]==1 using memcpy
   if (rank == 2 && mr_strides[rank - 1] == 1) {
     int64_t size = mr_sizes[rank - 1];  // number of elements in one row
@@ -347,6 +432,7 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     }
     return;
   }
+#endif
 
   int64_t volatile readIndex = 0;
   int64_t volatile writeIndex = 0;
