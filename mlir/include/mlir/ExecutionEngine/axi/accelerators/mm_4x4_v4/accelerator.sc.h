@@ -1,9 +1,9 @@
 #ifndef ACC_H
 #define ACC_H
 
-#define PE_M 4
-#define PE_N 4
-#define PE_K 4
+#define PE_M 16
+#define PE_N 16
+#define PE_K 16
 
 #include "dma_engine.sc.h"
 #define ACCNAME MM_4x4v4
@@ -34,6 +34,7 @@
 // 1110 : 14 = read_B -> compute_C -> send_C;
 // 1111 : 15 = read_A -> read_B -> compute_C -> send_C;
 
+// MAX M, N, K = 256
 struct opcode {
   unsigned int packet;
   bool read_A;
@@ -53,15 +54,15 @@ struct opcode {
 };
 
 struct code_extension {
-  int N;
-  int M;
-  int K;
+  unsigned int M;
+  unsigned int N;
+  unsigned int K;
 
-  code_extension(sc_uint<32> _packetA, sc_uint<32> _packetB) {
-    N = _packetA.range(15, 0);
-    M = _packetA.range(31, 16);
-    K = _packetB.range(31, 0);
-
+  code_extension(sc_uint<32> _packetA) {
+    M = _packetA.range(7, 0);
+    N = _packetA.range(15, 8);
+    K = _packetA.range(23, 16);
+    ALOG("_packetA: " << _packetA);
     ALOG("Time: " << sc_time_stamp());
     ALOG("N: " << N << ", M: " << M << ", K: " << K);
   }
@@ -92,7 +93,7 @@ SC_MODULE(ACCNAME) {
   sc_signal<bool> send;
 #endif
 
-  code_extension acc_args = code_extension(0, 0);
+  code_extension acc_args = code_extension(0);
 
   void Recv();
 
@@ -156,23 +157,22 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
 }
 
 void ACCNAME::print_profile() {
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Read A data_len: " << read_A_len << endl;
-  cout << "Read B data_len: " << read_B_len << endl;
-  cout << "MACs count: " << compute_C_len << endl;
-  cout << "Send C data_len: " << send_C_len << endl;
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Executed with :" << __FILE__ << endl;
-  cout << "- - - - - - - - - - - - - - - - - - - - " << endl;
+  ALOG("++++++++++++++++++++++++++++++++++++++++" );
+  ALOG("Read A data_len: " << read_A_len);
+  ALOG("Read B data_len: " << read_B_len);
+  ALOG("MACs count: " << compute_C_len);
+  ALOG("Send C data_len: " << send_C_len);
+  ALOG("++++++++++++++++++++++++++++++++++++++++" );
+  ALOG("Executed with :" << __FILE__ );
+  ALOG("- - - - - - - - - - - - - - - - - - - - ");
 }
 
 void ACCNAME::Recv() {
 
   wait();
   while (1) {
-
     opcode packet(din1.read().data);
-    code_extension op_args(din1.read().data, din1.read().data);
+    code_extension op_args(din1.read().data);
     acc_args = op_args;
 
     if (packet.read_A) {
@@ -272,10 +272,10 @@ void ACCNAME::Schedule_Compute() {
     while (!compute)
       wait();
 
-    for (int k = 0; k < acc_args.K; k += PE_K) {
-      for (int m = 0; m < acc_args.M; m += PE_M) {
+    for (unsigned int k = 0; k < acc_args.K; k += PE_K) {
+      for (unsigned int m = 0; m < acc_args.M; m += PE_M) {
         LoadA(A, m, k, acc_args.K);
-        for (int n = 0; n < acc_args.N; n += PE_N) {
+        for (unsigned int n = 0; n < acc_args.N; n += PE_N) {
           LoadB(B, n, k, acc_args.K);
           Compute(A, B, C);
           Store(C, n, m, acc_args.N);
@@ -295,8 +295,8 @@ void ACCNAME::Send() {
     while (!send)
       wait();
 
-    for (int m = 0; m < acc_args.M; m++) {
-      for (int n = 0; n < acc_args.N; n++) {
+    for (unsigned int m = 0; m < acc_args.M; m++) {
+      for (unsigned int n = 0; n < acc_args.N; n++) {
         DATA d;
         d.tlast = false;
         d.data = C_buffer[n * acc_args.M + m];

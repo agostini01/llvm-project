@@ -57,13 +57,13 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
 
 void dma::dma_free() {
   LOG("SystemC dma_free() deallocates DMA buffers");
-  PLOG("++++++++++++++++++++++++++++++++++++++++");
-  PLOG("SystemC simulated cycles: " << sc_time_stamp());
-  PLOG("DMA Send count: " << dma_send_count);
-  PLOG("DMA Send length: " << dma_send_length);
-  PLOG("DMA Recv count: " << dma_recv_count);
-  PLOG("DMA Recv length: " << dma_recv_length);
-  PLOG("++++++++++++++++++++++++++++++++++++++++");
+  LOG("++++++++++++++++++++++++++++++++++++++++");
+  LOG("SystemC simulated cycles: " << sc_time_stamp());
+  LOG("DMA Send count: " << dma_send_count);
+  LOG("DMA Send length: " << dma_send_length);
+  LOG("DMA Recv count: " << dma_recv_count);
+  LOG("DMA Recv length: " << dma_recv_length);
+  LOG("++++++++++++++++++++++++++++++++++++++++");
   acc->print_profile();
 
   free(dma_input_address);
@@ -208,8 +208,8 @@ template <typename T>
 int dma::mlir_dma_copy_to_inbuffer(T *mr_base, int64_t mr_dim, int64_t mr_rank,
                                    int64_t mr_offset, const int64_t *mr_sizes,
                                    const int64_t *mr_strides, int dma_offset) {
-  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
-
+  // std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+  LOG(__FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n");
   copy_memref_to_array(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
                        mr_strides, dma_get_inbuffer(), dma_offset);
 
@@ -338,8 +338,8 @@ int dma::mlir_dma_copy_from_outbuffer(T *mr_base, int64_t mr_dim,
                                       const int64_t *mr_strides,
                                       int dma_offset) {
 
-  std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
-
+  // std::cout << __FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n";
+  LOG(__FILE__ << ": " << __LINE__ << " [" << __func__ << "]\n");
   copy_array_to_memref(mr_base, mr_dim, mr_rank, mr_offset, mr_sizes,
                        mr_strides, dma_get_outbuffer(), dma_offset);
 
