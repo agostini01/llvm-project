@@ -2,11 +2,26 @@
 #define ACC_H
 
 #include "dma_engine.sc.h"
+
+
+#ifndef __SYNTHESIS__
+#define DWAIT(x) wait(x)
+#else
+#define DWAIT(x)
+#endif
+
 #define ACCNAME MM_4x4v1
 
 #define M 4
 #define N 4
 #define K 4
+
+#ifdef VERBOSE_ACC
+#define ALOG(x) std::cout << x << std::endl
+#else
+#define ALOG(x)
+#endif
+
 
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;
@@ -92,14 +107,14 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
 }
 
 void ACCNAME::print_profile() {
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Read A data_len: " << read_A_len << endl;
-  cout << "Read B data_len: " << read_B_len << endl;
-  cout << "MACs count: " << compute_C_len << endl;
-  cout << "Send C data_len: " << send_C_len << endl;
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Executed with :" << __FILE__ << endl;
-  cout << "- - - - - - - - - - - - - - - - - - - - " << endl;
+  ALOG("++++++++++++++++++++++++++++++++++++++++" );
+  ALOG("Read A data_len: " << read_A_len);
+  ALOG("Read B data_len: " << read_B_len);
+  ALOG("MACs count: " << compute_C_len);
+  ALOG("Send C data_len: " << send_C_len);
+  ALOG("++++++++++++++++++++++++++++++++++++++++" );
+  ALOG("Executed with :" << __FILE__ );
+  ALOG("- - - - - - - - - - - - - - - - - - - - ");
 }
 
 void ACCNAME::Recv() {
@@ -127,7 +142,7 @@ void ACCNAME::Recv() {
     }
 
     // DEBUG ONLY
-    if (false) {
+    if (verbose) {
       cout << "=========================" << endl;
       cout << "BLOCK: " << process_blocks++ << endl;
       cout << "=========================" << endl;
@@ -173,7 +188,7 @@ void ACCNAME::Compute() {
     }
 
     // DEBUG ONLY
-    if (true) {
+    if (verbose) {
       cout << "=========================" << endl;
       cout << "Output: " << process_blocks - 1 << endl;
       cout << "=========================" << endl;

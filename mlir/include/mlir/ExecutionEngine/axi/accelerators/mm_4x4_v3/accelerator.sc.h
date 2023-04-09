@@ -48,8 +48,8 @@ struct opcode {
   bool send_C;
 
   opcode(sc_uint<32> _packet) {
-    ALOG("OPCODE: " << _packet);
-    ALOG("Time: " << sc_time_stamp());
+    // ALOG("OPCODE: " << _packet);
+    // ALOG("Time: " << sc_time_stamp());
     packet = _packet;
     read_A = _packet.range(0, 0);
     read_B = _packet.range(1, 1);
@@ -146,14 +146,14 @@ void accelerator_dma_connect(ACCNAME *acc, DMA_DRIVER *dmad,
 }
 
 void ACCNAME::print_profile() {
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Read A data_len: " << read_A_len << endl;
-  cout << "Read B data_len: " << read_B_len << endl;
-  cout << "MACs count: " << compute_C_len << endl;
-  cout << "Send C data_len: " << send_C_len << endl;
-  cout << "++++++++++++++++++++++++++++++++++++++++" << endl;
-  cout << "Executed with :" << __FILE__ << endl;
-  cout << "- - - - - - - - - - - - - - - - - - - - " << endl;;
+  ALOG("++++++++++++++++++++++++++++++++++++++++");
+  ALOG("Read A data_len: " << read_A_len);
+  ALOG("Read B data_len: " << read_B_len);
+  ALOG("MACs count: " << compute_C_len);
+  ALOG("Send C data_len: " << send_C_len);
+  ALOG("++++++++++++++++++++++++++++++++++++++++");
+  ALOG("Executed with :" << __FILE__);
+  ALOG("- - - - - - - - - - - - - - - - - - - - ");
 }
 
 void ACCNAME::Recv() {
@@ -166,6 +166,7 @@ void ACCNAME::Recv() {
         // #pragma HLS pipeline
         for (int k = 0; k < K; k++) {
           inputs[m][k] = din1.read().data;
+          read_A_len++;
         }
       }
       if (verbose) {
@@ -186,6 +187,7 @@ void ACCNAME::Recv() {
         // #pragma HLS pipeline
         for (int n = 0; n < N; n++) {
           weights[k][n] = din1.read().data;
+          read_B_len++;
         }
       }
       if (verbose) {
@@ -237,6 +239,7 @@ void ACCNAME::Compute() {
           int x = inputs[m][k];
           int y = weights[k][n];
           acc += mul_int32(x, y);
+          compute_C_len++;
         }
         outputs[m][n] += acc;
       }
@@ -264,6 +267,7 @@ void ACCNAME::Send() {
           d.tlast = true;
         d.data = outputs[m][n];
         dout1.write(d);
+        send_C_len++;
         DWAIT();
       }
     }
