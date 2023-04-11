@@ -649,12 +649,26 @@ public:
                         newSubView.getType().cast<MemRefType>();
 
                     SmallVector<int64_t, 2> shape;
-                    for (unsigned i = 0; i < sVmrType.getRank(); i++) {
-                      auto accelSize = op->getAttrOfType<IntegerAttr>(
-                          kAccel_accel_tile_size);
+                    auto accelSizes = op->getAttrOfType<ArrayAttr>(
+                        kAccel_accel_tile_sizes);
 
-                      // TODO: Support multi-dimensions
-                      shape.push_back(accelSize.getInt());
+                      // SmallVector<int64_t> rootTileSizes(options.tileSizes.begin(),
+                      //                options.tileSizes.begin() +
+                      //                    rootOp.getNumLoops());
+                    // if access sizes bigger than 0, use them
+                    if (accelSizes.size() > 0) {
+                      // TODO use begin and end iterator
+                      for (unsigned i = 0; i < sVmrType.getRank(); i++) {
+                        shape.push_back(accelSizes[i].cast<IntegerAttr>().getInt());
+                      }
+                    } else {
+                      for (unsigned i = 0; i < sVmrType.getRank(); i++) {
+                        auto accelSize = op->getAttrOfType<IntegerAttr>(
+                            kAccel_accel_tile_size);
+
+                        // TODO: Support multi-dimensions
+                        shape.push_back(accelSize.getInt());
+                      }
                     }
                     // Transform SmallVector in ArrayRef
                     ArrayRef<int64_t> shapeRef(shape);
