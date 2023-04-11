@@ -20,6 +20,7 @@ class ModuleOp;
 struct AccelTransformationOptions {
   /// Accelerator Tile Size information
   unsigned accelSize = 1;
+  ArrayRef<unsigned> accelSizes;
 
   /// DMA Information
   unsigned dmaAddress = 0;

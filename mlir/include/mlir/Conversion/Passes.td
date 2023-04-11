@@ -884,6 +884,10 @@ def AXI4MLIRAcceleratorOptions {
   list<Option> options = [
     Option<"accelSize", "accel-tile-size", "unsigned", /*default=*/"4",
            "Use this tile size for all loops">,
+    ListOption<"accelSizes", "accel-tile-sizes", "unsigned", 
+               "Tile sizes for accelerator. Must match the permutation map. "
+               "Example accel-tile-sizes=16,8,4",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
   ];
 }
 

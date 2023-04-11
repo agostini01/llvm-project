@@ -50,6 +50,7 @@ const StringLiteral kAccel_opcode_flow = "accel_opcode_flow";
 const StringLiteral kAccel_opcode_flow_str = "accel_opcode_flow_str";
 const StringLiteral kAccel_loop_permutation = "accel_loop_permutation";
 const StringLiteral kAccel_accel_tile_size = "accel_accel_tile_size";
+const StringLiteral kAccel_accel_tile_sizes = "accel_accel_tile_sizes";
 const StringLiteral kAccel_tile_sizes = "accel_tile_sizes";
 const StringLiteral kAccel_init_flow = "accel_init_flow";
 const StringLiteral kAccel_init_flow_str = "accel_init_flow_str";
@@ -197,6 +198,11 @@ public:
     setAttrIfEmpty(op, kAccel_loop_permutation, [&]() {
       op->setAttr(kAccel_loop_permutation,
                   getArrayAttr(options.loopPermutation));
+    });
+
+    // AccelSizes Attribute
+    setAttrIfEmpty(op, kAccel_accel_tile_sizes, [&]() {
+      op->setAttr(kAccel_accel_tile_sizes, getArrayAttr(options.accelSizes));
     });
 
     // LoopTiling Attribute
@@ -843,6 +849,7 @@ struct ConvertLinalgGenericToAccelPass
   /// this pass in code
   ConvertLinalgGenericToAccelPass(const AccelTransformationOptions &options) {
     this->accelSize = options.accelSize;
+    this->accelSizes = options.accelSizes;
     this->dmaAddress = options.dmaAddress;
     this->dmaInputAddress = options.dmaInputAddress;
     this->dmaInputBufferSize = options.dmaInputBufferSize;
@@ -867,6 +874,7 @@ struct ConvertLinalgGenericToAccelPass
 
   void setOptions(AccelTransformationOptions &options) {
     options.accelSize = this->accelSize;
+    options.accelSizes = this->accelSizes;
     options.dmaAddress = this->dmaAddress;
     options.dmaInputAddress = this->dmaInputAddress;
     options.dmaInputBufferSize = this->dmaInputBufferSize;

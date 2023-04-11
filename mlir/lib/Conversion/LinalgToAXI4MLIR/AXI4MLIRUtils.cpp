@@ -177,20 +177,33 @@ void mlir::populateCommonLinalgTransformationPatterns(
 
   // At this point relevant operations will have the L1 marker
   // Only accelerator tiling is missing
-  if (options.accelSize > 1) {
-    patterns.add<LinalgTilingPattern>(
-        GenericOp::getOperationName(), ctx,
-        LinalgTilingOptions().setTileSizes(
-            {options.accelSize, options.accelSize, options.accelSize}),
-        LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
-                                   StringAttr::get(ctx, "GENACCEL")));
+  if (options.accelSizes.size() > 0) {
+    // TODO: Pass in the accel sizes as an ArrayRef
+    assert(options.accelSizes.size() == 3 && "please provide 3 tile sizes");
 
-  } else {
     patterns.add<LinalgTilingPattern>(
         GenericOp::getOperationName(), ctx,
-        LinalgTilingOptions().setTileSizes({4, 4, 4}),
+        LinalgTilingOptions().setTileSizes({options.accelSizes[0],
+                                            options.accelSizes[1],
+                                            options.accelSizes[2]}),
         LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
                                    StringAttr::get(ctx, "GENACCEL")));
+  } else {
+    if (options.accelSize > 1) {
+      patterns.add<LinalgTilingPattern>(
+          GenericOp::getOperationName(), ctx,
+          LinalgTilingOptions().setTileSizes(
+              {options.accelSize, options.accelSize, options.accelSize}),
+          LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
+                                     StringAttr::get(ctx, "GENACCEL")));
+
+    } else {
+      patterns.add<LinalgTilingPattern>(
+          GenericOp::getOperationName(), ctx,
+          LinalgTilingOptions().setTileSizes({4, 4, 4}),
+          LinalgTransformationFilter(StringAttr::get(ctx, "L1"),
+                                     StringAttr::get(ctx, "GENACCEL")));
+    }
   }
 }
 
