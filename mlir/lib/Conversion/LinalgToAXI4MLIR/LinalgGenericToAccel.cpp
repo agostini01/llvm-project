@@ -652,6 +652,13 @@ public:
                     auto accelSizes = op->getAttrOfType<ArrayAttr>(
                         kAccel_accel_tile_sizes);
 
+                    // TODO: get shape from SubViewOp creating the subview
+                    auto loopPerm = op->getAttrOfType<ArrayAttr>(
+                                          kAccel_loop_permutation);
+                    int index[3];
+                    for (unsigned i = 0; i < 3; i++) {
+                      index[loopPerm[i].cast<IntegerAttr>().getInt()]=i;
+                    }   
                       // SmallVector<int64_t> rootTileSizes(options.tileSizes.begin(),
                       //                options.tileSizes.begin() +
                       //                    rootOp.getNumLoops());
@@ -659,7 +666,7 @@ public:
                     if (accelSizes.size() > 0) {
                       // TODO use begin and end iterator
                       for (unsigned i = 0; i < sVmrType.getRank(); i++) {
-                        shape.push_back(accelSizes[i].cast<IntegerAttr>().getInt());
+                        shape.push_back(accelSizes[index[i]].cast<IntegerAttr>().getInt());
                       }
                     } else {
                       for (unsigned i = 0; i < sVmrType.getRank(); i++) {
