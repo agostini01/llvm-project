@@ -199,7 +199,7 @@ public:
     if (inputType.hasStaticShape()) {
       // llvm::errs() << "SendToAXI4MLIRCall: inputType has static shape\n";
       int numElements = inputType.getNumElements();
-      int bytes = numElements * bitWidth / 8;
+      // int bytes = numElements * bitWidth / 8;
 
       Value nElements = rewriter.create<arith::ConstantOp>(
           loc, IntegerAttr::get(intTy, numElements));
@@ -208,7 +208,7 @@ public:
       rewriter.create<CallOp>(loc, kDmaWaitSend, TypeRange());
 
       Value resultOffset = rewriter.create<arith::ConstantOp>(
-          loc, IntegerAttr::get(intTy, bytes));
+          loc, IntegerAttr::get(intTy, numElements));
       rewriter.replaceOp(op, {resultOffset});
     } else {
       // llvm::errs() << "SendToAXI4MLIRCall: inputType has dynamic shape\n";
@@ -230,13 +230,13 @@ public:
       // If many actions are chained, they are placed in order in the DMA,
       // thus the offset is the size of the previous action.
       Value resultOffset = nElements;
-      Value bitWidthV = rewriter.create<arith::ConstantOp>(
-          loc, IntegerAttr::get(intTy, bitWidth));
-      resultOffset =
-          rewriter.create<arith::MulIOp>(loc, resultOffset, bitWidthV);
-      Value eight =
-          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 8));
-      resultOffset = rewriter.create<arith::DivSIOp>(loc, resultOffset, eight);
+      // Value bitWidthV = rewriter.create<arith::ConstantOp>(
+      //     loc, IntegerAttr::get(intTy, bitWidth));
+      // resultOffset =
+      //     rewriter.create<arith::MulIOp>(loc, resultOffset, bitWidthV);
+      // Value eight =
+      //     rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 8));
+      // resultOffset = rewriter.create<arith::DivSIOp>(loc, resultOffset, eight);
       rewriter.replaceOp(op, {resultOffset});
     }
 
@@ -289,7 +289,7 @@ public:
 
     int numElements = inputType.getNumElements();
     int bitWidth = inputType.getElementTypeBitWidth();
-    int bytes = numElements * bitWidth / 8;
+    // int bytes = numElements * bitWidth / 8;
 
     Value nElements = rewriter.create<arith::ConstantOp>(
         loc, IntegerAttr::get(intTy, numElements));
@@ -301,7 +301,7 @@ public:
     rewriter.create<memref::DeallocOp>(loc, input);
 
     Value resultOffset =
-        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, bytes));
+        rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, numElements));
     rewriter.replaceOp(op, {resultOffset});
 
     return success();
@@ -344,7 +344,7 @@ public:
     if (inputType.hasStaticShape()) {
       // llvm::errs() << "RecvToAXI4MLIRCall: inputType has static shape\n";
       int numElements = inputType.getNumElements();
-      int bytes = numElements * bitWidth / 8;
+      // int bytes = numElements * bitWidth / 8;
 
       Value nElements = rewriter.create<arith::ConstantOp>(
           loc, IntegerAttr::get(intTy, numElements));
@@ -357,7 +357,7 @@ public:
                               SmallVector<Value, 2>({casted, initOffset}));
 
       Value resultOffset = rewriter.create<arith::ConstantOp>(
-          loc, IntegerAttr::get(intTy, bytes));
+          loc, IntegerAttr::get(intTy, numElements));
       rewriter.replaceOp(op, {resultOffset});
 
     } else {
@@ -382,13 +382,13 @@ public:
       // If many actions are chained, they are placed in order in the DMA,
       // thus the offset is the size of the previous action.
       Value resultOffset = nElements;
-      Value bitWidthV = rewriter.create<arith::ConstantOp>(
-          loc, IntegerAttr::get(intTy, bitWidth));
-      resultOffset =
-          rewriter.create<arith::MulIOp>(loc, resultOffset, bitWidthV);
-      Value eight =
-          rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 8));
-      resultOffset = rewriter.create<arith::DivSIOp>(loc, resultOffset, eight);
+      // Value bitWidthV = rewriter.create<arith::ConstantOp>(
+      //     loc, IntegerAttr::get(intTy, bitWidth));
+      // resultOffset =
+      //     rewriter.create<arith::MulIOp>(loc, resultOffset, bitWidthV);
+      // Value eight =
+      //     rewriter.create<arith::ConstantOp>(loc, IntegerAttr::get(intTy, 8));
+      // resultOffset = rewriter.create<arith::DivSIOp>(loc, resultOffset, eight);
       rewriter.replaceOp(op, {resultOffset});
     }
 
