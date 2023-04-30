@@ -37,6 +37,27 @@ extern "C" void dma_init(unsigned int dma_address,
   return;
 }
 
+// V2 implementation
+// extern "C" void dma_init(unsigned int dma_address,
+//                          unsigned int dma_input_address,
+//                          unsigned int dma_input_buffer_size, unsigned int
+//                          isize, unsigned int dma_output_address, unsigned int
+//                          dma_output_buffer_size, unsigned int osize) {
+//   D(std::cout << "Called: " << __func__ << " not mock version" << std::endl;
+//     std::cout << "\t" << dma_address << std::endl;
+//     std::cout << "\t" << dma_input_address << std::endl;
+//     std::cout << "\t" << dma_input_buffer_size << std::endl;
+//     std::cout << "\t" << isize << std::endl;
+//     std::cout << "\t" << dma_output_address << std::endl;
+//     std::cout << "\t" << dma_output_buffer_size << std::endl;
+//     std::cout << "\t" << osize << std::endl;);
+
+//   myDMA.dma_init(dma_address, dma_input_address, dma_input_buffer_size,
+//   isize,
+//                  dma_output_address, dma_output_buffer_size, osize);
+//   return;
+// }
+
 extern "C" void dma_free() {
   D(std::cout << "Called: " << __func__ << " not mock version" << std::endl;);
   myDMA.dma_free();
@@ -51,6 +72,17 @@ extern "C" unsigned int *dma_get_outbuffer() {
   D(std::cout << "Called: " << __func__ << " not mock version" << std::endl;);
   return myDMA.dma_get_outbuffer();
 }
+
+// V2 implementation
+// extern "C" char *dma_get_inbuffer() {
+//   D(std::cout << "Called: " << __func__ << " not mock version" << std::endl;);
+//   return myDMA.dma_get_inbuffer();
+// }
+
+// extern "C" char *dma_get_outbuffer() {
+//   D(std::cout << "Called: " << __func__ << " not mock version" << std::endl;);
+//   return myDMA.dma_get_outbuffer();
+// }
 
 extern "C" int dma_copy_to_inbuffer(unsigned int *host_src_address,
                                     int data_length, int offset) {
