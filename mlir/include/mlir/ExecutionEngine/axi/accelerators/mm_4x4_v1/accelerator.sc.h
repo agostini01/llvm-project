@@ -1,7 +1,7 @@
 #ifndef ACC_H
 #define ACC_H
 
-#include "dma_engine.sc.h"
+#include "../dma_engine.sc.h"
 
 
 #ifndef __SYNTHESIS__

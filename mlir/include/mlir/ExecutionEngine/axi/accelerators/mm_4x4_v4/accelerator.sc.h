@@ -5,7 +5,7 @@
 #define PE_N 16
 #define PE_K 16
 
-#include "dma_engine.sc.h"
+#include "../dma_engine.sc.h"
 #define ACCNAME MM_4x4v4
 
 // #define VERBOSE_ACC

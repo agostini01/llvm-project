@@ -1,7 +1,7 @@
 #ifndef ACC_H
 #define ACC_H
 
-#include "dma_engine.sc.h"
+#include "../dma_engine.sc.h"
 #define ACCNAME MM_4x4v4
 
 // #define VERBOSE_ACC

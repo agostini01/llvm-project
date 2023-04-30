@@ -28,13 +28,25 @@ SC_MODULE(DMA_DRIVER) {
 
   void DMA_MMS2() {
     while (1) {
+
       while (!send)
         wait();
-      for (int i = 0; i < input_len; i++) {
-        int d = DMA_input_buffer[i + input_offset];
+      
+      int send_len = input_len * isize;
+      for (int i = 0; i < send_len; i++) {
+        sc_uint<32> d;
+        d.range(7, 0) = DMA_input_buffer[(input_offset * isize) + i++];
+        if (isize > 1 && i < send_len)
+          d.range(15, 8) = DMA_input_buffer[(input_offset * isize) + i++];
+        if (isize > 2 && i < send_len)
+          d.range(23, 16) = DMA_input_buffer[(input_offset * isize) + i++];
+        if (isize > 3 && i < send_len)
+          d.range(31, 24) = DMA_input_buffer[(input_offset * isize) + i++];
+        wait();
         din1.write({d, 1});
         wait();
       }
+
       send = false;
       wait();
       sc_pause();
@@ -48,15 +60,27 @@ SC_MODULE(DMA_DRIVER) {
         wait();
       bool last = false;
       int i = 0;
+
       do {
         DATA d = dout1.read();
-        while (i >= output_len)
+        int recv_len = output_len * osize;
+        while (i >= recv_len)
           wait();
         last = d.tlast;
-        DMA_output_buffer[output_offset + i++] = d.data;
+        DMA_output_buffer[(output_offset * osize) + i++] = d.data.range(7, 0);
+        if (osize > 1)
+          DMA_output_buffer[(output_offset * osize) + i++] =
+              d.data.range(15, 8);
+        if (osize > 2)
+          DMA_output_buffer[(output_offset * osize) + i++] =
+              d.data.range(23, 16);
+        if (osize > 3)
+          DMA_output_buffer[(output_offset * osize) + i++] =
+              d.data.range(31, 24);
         wait();
       } while (!last);
-      output_len = i;
+
+      recv_len = i;
       recv = false;
       // To ensure wait_send() does not evoke the sc_pause
       while (send)
@@ -76,15 +100,17 @@ SC_MODULE(DMA_DRIVER) {
     reset_signal_is(reset, true);
   }
 
-  int *DMA_input_buffer;
-  int *DMA_output_buffer;
+  char *DMA_input_buffer;
+  char *DMA_output_buffer;
 
-  // TODO: input_length = Number of elements * (sizeof(elements)/32)
-  int input_len;
-  int input_offset;
+  // length = Number of elements
+  unsigned int input_len;
+  unsigned int input_offset;
+  unsigned int isize;
 
-  int output_len;
-  int output_offset;
+  unsigned int output_len;
+  unsigned int output_offset;
+  unsigned int osize;
 };
 
 #endif
