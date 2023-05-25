@@ -5,6 +5,8 @@ set(LLVM_OPTIONAL_SOURCES
   api_v0.cpp
   api_v1.cpp
   api_v1_sysc.cpp
+  api_v2.cpp
+  api_v2_sysc.cpp
   )
 
 add_mlir_library(axi_api_v0
