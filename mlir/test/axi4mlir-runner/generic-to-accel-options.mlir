@@ -1,5 +1,5 @@
 // RUN: mlir-opt %s \
-// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,1,2 opcode-map="opcode_map<s0=[op_send(0)], s1=[op_send(1)], s2=[op_send(2)], r2=[op_recv(2)], reset=[op_send(32)]>" opcode-flow="(s0 (s1 s2))" init-flow="reset"  number-of-caches=2 tile-sizes=128,128,128,32,32,32 accel-tile-size=8' \
+// RUN: --test-generic-to-accel='anchor-op=linalg.matmul loop-permutation=0,2,1 opcode-map="opcode_map<s0=[op_send(0)], s1=[op_send(1)], s2=[op_send(2)], r2=[op_recv(2)], reset=[op_send(32)]>" opcode-flow="(s0 (s1 r2))" init-flow="reset"  accel-tile-size=8' \
 // RUN: | FileCheck %s
 
 
@@ -19,13 +19,13 @@
   accel_dmaInputBufferSize = 42,
   accel_dmaOutputAddress = 43,
   accel_loop_permutation = [0,2,1], // TODO: respects commandline
-  accel_number_of_caches=2,
-  accel_tile_sizes = [32,32,32,8,8,8], // TODO: respects commandline
+  // accel_number_of_caches=2,
+  // accel_tile_sizes = [32,32,32,8,8,8], // TODO: respects commandline
   accel_accel_tile_size = 4, // TODO: respects commandline
   // accel_acc_on_cpu = true, // TODO: True is not working
   accel_opcode_map_str = "opcode_map<s0=[op_send(0)], s1=[op_send(1)], s2=[op_send(2)], r2=[op_recv(2)], s0s1s2r2=[op_send(0), op_send(1), op_send(2), op_recv(2)]>",
   accel_init_flow_str = "reset",
-  accel_opcode_flow_str = "(s0 (s1 s2 r2))",
+  accel_opcode_flow_str = "(s0 (s1 r2))",
 
   // Original generic information
   iterator_types = ["parallel", "parallel", "reduction"],

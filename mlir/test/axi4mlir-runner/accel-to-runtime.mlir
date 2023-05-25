@@ -52,8 +52,8 @@ func @test_init_dma2(
 }
 
 // CHECK-LABEL: test_send
-// CHECK:   %[[CASTED:.*]] = memref.cast
 // CHECK:   %[[C0:.*]] = arith.constant 0
+// CHECK:   %[[CASTED:.*]] = memref.cast
 // CHECK:   call @copy_to_inbuffer_i32(%[[CASTED]], %[[C0]]) : (memref<*xi32>, i32) -> i32
 // CHECk:   call @dma_start_send
 // CHECK:   call @dma_wait_send
@@ -65,7 +65,7 @@ func @test_send(%A: memref<60x80xi32>) -> i32 {
 // CHECK-LABEL: test_send_with_offset
 // CHECK:   %[[CASTED:.*]] = memref.cast
 // CHECK:   call @copy_to_inbuffer_i32(%[[CASTED]], %{{.*}}) : (memref<*xi32>, i32) -> i32
-// CHECK:   return %c19200
+// CHECK:   return %c4800
 func @test_send_with_offset(%A: memref<60x80xi32>, %offset0: i32) -> i32 {
   %offset = accel.send %A, %offset0  : (memref<60x80xi32> , i32) -> i32
   return %offset : i32
@@ -74,7 +74,7 @@ func @test_send_with_offset(%A: memref<60x80xi32>, %offset0: i32) -> i32 {
 // CHECK-LABEL: test_send_with_subview
 // CHECK:   %[[CASTED:.*]] = memref.cast
 // CHECK:   call @copy_to_inbuffer_i32(%[[CASTED]], %{{.*}}) : (memref<*xi32>, i32) -> i32
-// CHECK:   return %c2048
+// CHECK:   return %c512
 #map = affine_map<(d0, d1)[s0] -> (d0 * 1024 + s0 + d1)>
 func @test_send_with_subview(%input: memref<4x1024xi32>) -> i32 {
   %cst_2 = arith.constant 2 : index
@@ -90,7 +90,7 @@ func @test_send_with_subview(%input: memref<4x1024xi32>) -> i32 {
 // CHECK:   %[[CASTED:.*]] = memref.cast
 // CHECK:   call @copy_to_inbuffer_i32(%[[CASTED]], %{{.*}}) : (memref<*xi32>, i32) -> i32
 // CHECK:   memref.dealloc %[[TMP]] : memref<i32>
-// CHECK:   return %c4
+// CHECK:   return %c1
 func @test_sendLiteral(%input: i32) -> i32 {
   %offset = accel.sendLiteral %input  : ( i32 ) -> i32
   return %offset : i32
