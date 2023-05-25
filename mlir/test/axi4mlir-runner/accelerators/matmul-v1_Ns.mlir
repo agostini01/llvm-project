@@ -16,7 +16,6 @@
 // CHECK:       accel.send
 // CHECK:       accel.send
 // CHECK:       accel.recv
-// CHECK: FAIL ON PURPOSE
 func @main(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   linalg.matmul

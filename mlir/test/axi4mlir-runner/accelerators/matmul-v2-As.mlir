@@ -4,20 +4,15 @@
 
 
 // CHECK-LABEL: @main
-// CHECK: for
-// CHECK: for
-// CHECK: for
-// CHECK:   for
-// CHECK:   for
-// CHECK:   for
 // CHECK:     for
 // CHECK:     for
-// CHECK:     for
-// CHECK:       accel.send_literal
+// CHECK:       accel.sendLiteral
+// CHECK:       memref.subview %arg0
 // CHECK:       accel.send
+// CHECK:     for
+// CHECK:       accel.sendLiteral
 // CHECK:       accel.send
 // CHECK:       accel.recv
-// CHECK: FAIL ON PURPOSE
 func @main(%A: memref<16x8xi32>, %B: memref<8x32xi32>, %C: memref<16x32xi32>) {
 
   linalg.matmul
