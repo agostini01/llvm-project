@@ -319,7 +319,7 @@ else()
     # ----------------------------
     # Conv accelerator
 
-    # Same for accelerator v1
+    # Same for accelerator conv_v1
     add_mlir_library(mlir_syscaxi_runner_utils_conv_accv1
       SHARED
       AxiUtilsSysc.cpp
@@ -330,6 +330,19 @@ else()
       axi_api_v1_sysc_conv_accv1
     )
     target_link_libraries(mlir_syscaxi_runner_utils_conv_accv1 PUBLIC axi_api_v1_sysc_conv_accv1) # Needed to call implemented functions
+
+    # Same for accelerator conv_v3
+    add_mlir_library(mlir_syscaxi_runner_utils_conv_accv3
+      SHARED
+      AxiUtilsSysc.cpp
+      EXCLUDE_FROM_LIBMLIR
+    )
+    target_compile_definitions(mlir_syscaxi_runner_utils_conv_accv3 PRIVATE mlir_syscaxi_runner_utils_conv_v3_EXPORTS)
+    add_dependencies(mlir_syscaxi_runner_utils_conv_accv3
+      axi_api_v1_sysc_conv_accv3
+    )
+    target_link_libraries(mlir_syscaxi_runner_utils_conv_accv3 PUBLIC axi_api_v1_sysc_conv_accv3) # Needed to call implemented functions
+
 
   endif()
 endif()

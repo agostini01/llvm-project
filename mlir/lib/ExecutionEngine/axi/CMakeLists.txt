@@ -96,7 +96,7 @@ else()
       # ----------------------------
       # Conv accelerator
 
-      # Same for accelerator v1
+      # Same for accelerator conv_v1
       add_mlir_library(axi_api_v1_sysc_conv_accv1
         SHARED
         api_v1_sysc.cpp
@@ -106,6 +106,17 @@ else()
       target_include_directories(axi_api_v1_sysc_conv_accv1 PUBLIC $ENV{SYSTEMC_HOME}/include/)
       set_target_properties(axi_api_v1_sysc_conv_accv1 PROPERTIES COMPILE_FLAGS "-DCONV_V1")
       target_link_libraries(axi_api_v1_sysc_conv_accv1 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
+
+    # Same for accelerator conv_v3
+      add_mlir_library(axi_api_v1_sysc_conv_accv3
+        SHARED
+        api_v1_sysc.cpp
+
+        EXCLUDE_FROM_LIBMLIR
+      )
+      target_include_directories(axi_api_v1_sysc_conv_accv3 PUBLIC $ENV{SYSTEMC_HOME}/include/)
+      set_target_properties(axi_api_v1_sysc_conv_accv3 PROPERTIES COMPILE_FLAGS "-DCONV_V3")
+      target_link_libraries(axi_api_v1_sysc_conv_accv3 PUBLIC $ENV{SYSTEMC_HOME}/lib-linux64/libsystemc.a)
 
   endif()
 endif()

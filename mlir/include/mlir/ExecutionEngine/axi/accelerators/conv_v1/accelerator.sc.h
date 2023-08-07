@@ -2,7 +2,7 @@
 #define ACC_H
 
 #include "../dma_engine.sc.h"
-#define ACCNAME MM_4x4v1
+#define ACCNAME CONV_ACC_V1
 
 SC_MODULE(ACCNAME) {
   sc_in<bool> clock;

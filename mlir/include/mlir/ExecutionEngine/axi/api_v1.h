@@ -17,7 +17,9 @@
 // Easy way to switch between systemC accelerators --- there is probably a
 // better way
 
-#ifdef CONV_V1
+#ifdef CONV_V3
+#include "mlir/ExecutionEngine/axi/accelerators/conv_v3/accelerator.sc.h"
+#elif CONV_V1
 #include "mlir/ExecutionEngine/axi/accelerators/conv_v1/accelerator.sc.h"
 #elif ACC_V5
 #include "mlir/ExecutionEngine/axi/accelerators/mm_4x4_v5/accelerator.sc.h"
