@@ -9,6 +9,14 @@
 #else
 #define DWAIT(x)
 #define HLSPRAGMA(X) Pragma(#X)
+typedef struct _DATA {
+  sc_uint<32> data;
+  bool tlast;
+  inline friend ostream &operator<<(ostream &os, const _DATA &v) {
+    cout << "data&colon; " << v.data << " tlast: " << v.tlast;
+    return os;
+  }
+} DATA;
 #endif
 
 #ifdef VERBOSE_ACC
@@ -75,7 +83,7 @@ SC_MODULE(ACCNAME) {
   sc_in<bool> reset;
 
   sc_int<32> inputs[H * W][C];
-  sc_int<32> filters[H * W][C];
+  sc_int<32> filters[H * W][C]; // C ==  IC 
   sc_int<32> output[2048];
   sc_fifo_in<DATA> din1;
   sc_fifo_out<DATA> dout1;
@@ -94,6 +102,7 @@ SC_MODULE(ACCNAME) {
 
   sc_signal<int> fs;
   sc_signal<int> ic;
+  sc_signal<int> ln;
 
   // Debug variables
   int process_blocks;
@@ -110,7 +119,11 @@ SC_MODULE(ACCNAME) {
       opcode packet(din1.read().data);
       if (packet.set_channels) {
         int tic = din1.read().data;
-        ic.write(tic);
+        int fs_ic = fs * tic;
+        int x = fs_ic + 48;
+        int nic = (x - (x % 49)) / 49;
+        ic.write(nic);
+        ln.write(fs_ic);
       }
 
       if (packet.set_filter_size) {
@@ -119,19 +132,27 @@ SC_MODULE(ACCNAME) {
       }
 
       if (packet.read_inputs) {
-        for (int c = 0; c < ic; c++) {
-          HLSPRAGMA(HLS pipeline)
-          for (int hw = 0; hw < fs; hw++) {
-            inputs[hw][c] = din1.read().data;
+        HLSPRAGMA(HLS pipeline)
+        int hid = 0;
+        int cid = 0;
+        for (int hw = 0; hw < ln; hw++) {
+          inputs[hid++][cid] = din1.read().data;
+          if (hid == 49) {
+            hid = 0;
+            cid++;
           }
         }
       }
 
       if (packet.read_fliters) {
-        for (int c = 0; c < ic; c++) {
-          HLSPRAGMA(HLS pipeline)
-          for (int hw = 0; hw < fs; hw++) {
-            filters[hw][c] = din1.read().data;
+        HLSPRAGMA(HLS pipeline)
+        int hid = 0;
+        int cid = 0;
+        for (int hw = 0; hw < ln; hw++) {
+          filters[hid++][cid] = din1.read().data;
+          if (hid == 49) {
+            hid = 0;
+            cid++;
           }
         }
       }
@@ -159,17 +180,20 @@ SC_MODULE(ACCNAME) {
   }
 
   void Compute() {
-    int ic_acc[49];
-    HLSPRAGMA(HLS array_partition variable = ic_acc complete dim = 0)
+    int ic_acc[49][C];
+    HLSPRAGMA(HLS array_partition variable = ic_acc complete dim = 1)
 
     wait();
     while (1) {
       while (!compute)
         wait();
 
-      for (int hw = 0; hw < 49; hw++) {
-        HLSPRAGMA(HLS unroll)
-        ic_acc[hw] = 0;
+      for (int c = 0; c < C; c++) {
+        HLSPRAGMA(HLS pipeline)
+        for (int hw = 0; hw < 49; hw++) {
+          HLSPRAGMA(HLS unroll)
+          ic_acc[hw][c] = 0;
+        }
       }
 
       for (int c = 0; c < ic; c++) {
@@ -177,12 +201,18 @@ SC_MODULE(ACCNAME) {
         for (int hw = 0; hw < H * W; hw++) {
           int x = inputs[hw][c];
           int y = filters[hw][c];
-          ic_acc[hw] += mul_int32(x, y);
+          ic_acc[hw][c] += mul_int32(x, y);
         }
       }
 
-      for (int hw = 0; hw < fs; hw++) {
-        output[output_size] += ic_acc[hw];
+      int hid = 0;
+      int cid = 0;
+      for (int hw = 0; hw < ln; hw++) {
+        output[output_size] += ic_acc[hid++][cid];
+        if (hid == 49) {
+          hid = 0;
+          cid++;
+        }
       }
 
       wait();

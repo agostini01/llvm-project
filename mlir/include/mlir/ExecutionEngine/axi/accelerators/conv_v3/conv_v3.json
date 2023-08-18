@@ -5,15 +5,15 @@
 
     "memory_layout": {
         "#A_Buffer": {
-            "size": 16,
+            "size": 6272,
             "data_type": "int32"
         },
         "#B_Buffer": {
-            "size": 16,
+            "size": 6272,
             "data_type": "int32"
         },
         "#C_Buffer": {
-            "size": 16,
+            "size": 2048,
             "data_type": "int32"
         }
     },
