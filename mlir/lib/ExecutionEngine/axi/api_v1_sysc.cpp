@@ -24,11 +24,16 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   sc_report_handler::set_actions("/IEEE_Std_1666/deprecated", SC_DO_NOTHING);
   sc_report_handler::set_actions(SC_ID_LOGIC_X_TO_BOOL_, SC_LOG);
   sc_report_handler::set_actions(SC_ID_VECTOR_CONTAINS_LOGIC_VALUE_, SC_LOG);
+  dma_input_buffer_size = _dma_input_buffer_size;
+  dma_output_buffer_size = _dma_output_buffer_size;
 
   dma_input_address =
       (unsigned int *)malloc(_dma_input_buffer_size * sizeof(int));
   dma_output_address =
       (unsigned int *)malloc(_dma_output_buffer_size * sizeof(int));
+
+  // dma_input_address = new unsigned int[_dma_input_buffer_size];
+  // dma_output_address = new unsigned int[_dma_output_buffer_size];
 
   // Initialize with zeros
   for (int64_t i = 0; i < _dma_input_buffer_size; i++) {
@@ -43,14 +48,18 @@ void dma::dma_init(unsigned int _dma_address, unsigned int _dma_input_address,
   static DMA_DRIVER dm("DMA");
   accelerator_dma_connect<int>(&dut, &dm, _dma_input_buffer_size,
                                _dma_output_buffer_size);
-
   dm.DMA_input_buffer = (int *)dma_input_address;
   dm.DMA_output_buffer = (int *)dma_output_address;
-  dma_input_buffer_size = _dma_input_buffer_size;
-  dma_output_buffer_size = _dma_output_buffer_size;
-
   acc = &dut;
   dmad = &dm;
+
+  // acc = new ACCNAME("dut");
+  // dmad = new DMA_DRIVER("DMA");
+  // accelerator_dma_connect<int>(acc, dmad, _dma_input_buffer_size,
+  //                              _dma_output_buffer_size);
+  // dmad->DMA_input_buffer = (int *)dma_input_address;
+  // dmad->DMA_output_buffer = (int *)dma_output_address;
+
   acc->verbose = verbose;
   LOG("SystemC dma_init() initializes the DMA");
 }

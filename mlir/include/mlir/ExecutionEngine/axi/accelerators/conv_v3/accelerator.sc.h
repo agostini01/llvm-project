@@ -28,7 +28,7 @@ typedef struct _DATA {
 // Accelerator parameters
 #define H 7   // Filter H 1,3,5,7
 #define W 7   // Filter W 1,3,5,7
-#define C 128 // Input C
+#define C 512 // Input C
 
 // OP-Code Stuct
 // 0000 : 0 = NOP;
@@ -84,7 +84,7 @@ SC_MODULE(ACCNAME) {
 
   sc_int<32> inputs[H * W][C];
   sc_int<32> filters[H * W][C]; // C ==  IC 
-  sc_int<32> output[2048];
+  sc_int<32> output[16384];
   sc_fifo_in<DATA> din1;
   sc_fifo_out<DATA> dout1;
 
