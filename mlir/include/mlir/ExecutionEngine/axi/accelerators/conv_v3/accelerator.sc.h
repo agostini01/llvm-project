@@ -84,7 +84,7 @@ SC_MODULE(ACCNAME) {
 
   sc_int<32> inputs[H * W][C];
   sc_int<32> filters[H * W][C]; // C ==  IC 
-  sc_int<32> output[16384];
+  sc_int<32> output[16384]; // OW * OH
   sc_fifo_in<DATA> din1;
   sc_fifo_out<DATA> dout1;
 

@@ -217,6 +217,38 @@ inline void copy_memref_to_array(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     }
     return;
   }
+
+  // this for rank 4
+  if (rank == 4 && mr_strides[rank - 1] == 1) {
+    int64_t d0 = mr_sizes[rank - 1]; // number of w
+    int64_t d1 = mr_sizes[rank - 2]; // number of h
+    int64_t d2 = mr_sizes[rank - 3]; // number of ic
+    int64_t d3 = mr_sizes[rank - 4]; // number of b
+
+    int64_t srcStride = mr_strides[rank - 2]; // stride between rows
+    int64_t dstStride = dstStrides[rank - 2]; // stride between rows
+    const int64_t elemSize = sizeof(T);
+
+    // std::cout << "D3:" << d3 << " D2:" << d2 << " D1:" << d1 << " D0:" << d0
+    //           << std::endl;
+
+    for (int64_t i = 0; i < d3; ++i) {
+      for (int64_t j = 0; j < d2; ++j) {
+        for (int64_t k = 0; k < d1; ++k) {
+          // std::cout << "INFO copy_memref_to_array: memcpy: " << dstPtr << " "
+          // << srcPtr << " " << size * elemSize << std::endl;
+          memcpy(dstPtr, srcPtr, d0 * elemSize); // broken
+          srcPtr += srcStride;
+          dstPtr += dstStride;
+          // std::cout << "Stride: " << srcStride << " " << dstStride << std::endl;
+        }
+        srcPtr += mr_strides[rank - 3] - d1 * srcStride;
+        dstPtr += dstStrides[rank - 3] - d1 * dstStride;
+
+      }
+    }
+    return;
+  }
 #endif
 
   int64_t volatile readIndex = 0;
@@ -432,6 +464,32 @@ inline void copy_array_to_memref(T *mr_base, int64_t mr_dim, int64_t mr_rank,
     }
     return;
   }
+
+  // this for rank 4
+  if (rank == 4 && mr_strides[rank - 1] == 1) {
+    int64_t d0 = mr_sizes[rank - 1]; // number of w
+    int64_t d1 = mr_sizes[rank - 2]; // number of h
+    int64_t d2 = mr_sizes[rank - 3]; // number of ic
+    int64_t d3 = mr_sizes[rank - 4]; // number of b
+
+    int64_t dstStride = mr_strides[rank - 2]; // stride between rows
+    int64_t srcStride = srcStrides[rank - 2]; // stride between rows
+    const int64_t elemSize = sizeof(T);
+    for (int64_t i = 0; i < d3; ++i) {
+      for (int64_t j = 0; j < d2; ++j) {
+        for (int64_t k = 0; k < d1; ++k) {
+          // std::cout << "INFO copy_memref_to_array: memcpy: " << dstPtr <<
+          // << srcPtr << " " << size * elemSize << std::endl;
+          memcpy(dstPtr, srcPtr, d0 * elemSize); // broken
+          srcPtr += srcStride;
+          dstPtr += dstStride;
+        }
+        srcPtr += srcStrides[rank - 3] - d1 * srcStride;
+        dstPtr += mr_strides[rank - 3] - d1 * dstStride;
+      }
+    }
+    return;
+  }
 #endif
 
   int64_t volatile readIndex = 0;
@@ -553,7 +611,6 @@ int dma::dma_start_recv(int length, int offset) {
   dma_set(dma_address, S2MM_DESTINATION_ADDRESS,
           dma_output_paddress + (offset * 4));
   msync(dma_address, PAGE_SIZE, MS_SYNC);
-  LOG("Started Receiving " << length * 4);
   dma_set(dma_address, S2MM_LENGTH, length * 4);
   LOG("Started Receiving " << length * 4);
   return 0;
