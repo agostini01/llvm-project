@@ -56,8 +56,8 @@ cmake --build /workspaces/llvm-project/builds/llvm-project/build/ --target opt m
 
 ## Examples used in the class
 
-I have included a convenient "Run test on file" vscode task that you can use to run llvm-project testing on a specific test file. 
-This can be achieved by:
+I have included a convenient "Run test on file" vscode task that you can use to
+run llvm-project testing on a specific test file.  This can be achieved by:
 
 1. Open the file you want to test inside the `mlir/test` directory.
 2. Open the command palette with `Ctrl+Shift+P` or `Cmd+Shift+P`
@@ -79,11 +79,8 @@ Here are some important directories and files related to MLIR:
 
 ## Debugging MLIR
 
-I have included a convenient `launch.json` configuration that you can use to debug the MLIR tools.
-
-## Debugging MLIR
-
-Let's set a breakpoint in one of the passes.
+I have included a convenient `launch.json` configuration that you can use to
+debug the MLIR tools.  Let's set a breakpoint in one of the passes.
 
 1. **Open the File:**
     - Navigate to [`mlir/lib/Dialect/Affine/Transforms/LoopUnroll.cpp`](mlir/lib/Dialect/Affine/Transforms/LoopUnroll.cpp#L93).
@@ -100,23 +97,6 @@ Let's set a breakpoint in one of the passes.
 
 ## Additional Resources
 
-- [LLVM Documentation](https://llvm.org/docs/)
-- [MLIR Documentation](https://mlir.llvm.org/docs/)
-
-## Templates for Other Sections
-
-### Introduction to MLIR
-
-Overview of MLIR, its purpose, and its architecture.
-
-### Basic MLIR Operations
-
-Basic operations in MLIR, including how to create and manipulate MLIR files.
-
-### Advanced MLIR Topics
-
-Advanced topics such as custom dialects, passes, and optimizations.
-
-### Assignments and Exercises
-
-Assignments and exercises for students to practice MLIR concepts.
+- Docs: https://mlir.llvm.org/
+- Source Code: https://github.com/llvm/llvm-project/tree/main/mlir
+- Forums: https://discourse.llvm.org/c/mlir/31
