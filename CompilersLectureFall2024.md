@@ -29,13 +29,13 @@ To get started, you need to have the following installed:
 Once you have the devcontainer set up, you can build LLVM and MLIR using the provided script.
 
 1. **Open the Integrated Terminal:**
-    - Press `` Ctrl+` `` to open the integrated terminal in VS Code.
+    - Press `` Ctrl+` `` to open the integrated terminal in VS Code select a new bash shell.
 
 2. **Run the Build Script:**
 
 ```bash
 ./build_tools/build_llvm_dev.sh \
-  $PWD/external/llvm-project/ \
+  $PWD/ \
   $PWD/builds/llvm-project/build/ \
   $PWD/builds/llvm-project/install/
 ```

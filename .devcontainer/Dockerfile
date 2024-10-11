@@ -36,8 +36,8 @@ USER $USERNAME
 # Install a recent version of CMake not yet available via apt.
 # Install Python kernel for use with Jupyter Notebooks.
 # Install other dependencies from mlir. See: https://github.com/llvm/llvm-project/blob/release/18.x/mlir/python/requirements.txt
-# TODO: if context changes, this must be updated
-COPY requirements.txt /tmp/requirements.txt
+# TODO: if context path changes, this must be updated
+COPY --chown=$USERNAME:$USERNAME requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Set compilers to clang

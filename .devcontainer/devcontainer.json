@@ -1,5 +1,5 @@
 {
-    "name": "ChemComp",
+    "name": "llvm-dev",
     "build": {
         "dockerfile": "Dockerfile",
         "target": "devcontainer",
@@ -12,7 +12,8 @@
         "--rm"
     ],
     "remoteEnv": {
-        "PYTHONPATH": "${containerEnv:PYTHONPATH}:${containerWorkspaceFolder}/builds/llvm-project/install/python_packages/mlir_core:${containerWorkspaceFolder}/builds/chemcomp/build/python_packages/standalone"
+        "PYTHONPATH": "${containerEnv:PYTHONPATH}:${containerWorkspaceFolder}/builds/llvm-project/install/python_packages/mlir_core"
+        // "PYTHONPATH": "${containerEnv:PYTHONPATH}:${containerWorkspaceFolder}/builds/llvm-project/install/python_packages/mlir_core:${containerWorkspaceFolder}/builds/chemcomp/build/python_packages/standalone"
     },
     // Allow container to stop. See: https://github.com/microsoft/vscode-remote-release/issues/3512#issuecomment-1267053890
     // "overrideCommand": false,
@@ -20,7 +21,6 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-vscode.makefile-tools",
                 "ms-azuretools.vscode-docker",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
@@ -43,16 +43,11 @@
             "python.linting.enabled": true,
             "C_Cpp.default.cppStandard": "c++17",
             "C_Cpp.default.includePath": [
-                "${containerWorkspaceFolder}/external/llvm-project/**",
-                "${containerWorkspaceFolder}/chemcomp/include",
+                "${containerWorkspaceFolder}/**",
                 "${containerWorkspaceFolder}/builds/llvm-project/build/include",
                 "${containerWorkspaceFolder}/builds/llvm-project/build/tools/mlir/include",
-                "${containerWorkspaceFolder}/builds/chemcomp/build/include"
-                // "${containerWorkspaceFolder}/builds/llvm-project/install/lib/**"
-                // "${containerWorkspaceFolder}/external/llvm-project/mlir/include",
-                // "${containerWorkspaceFolder}/external/llvm-project/llvm/include",
-                // "${containerWorkspaceFolder}/builds/llvm-project/build/tools/mlir/include",
-                // "${containerWorkspaceFolder}/builds/llvm-project/build/include"
+                // "${containerWorkspaceFolder}/standalone/include",
+                // "${containerWorkspaceFolder}/builds/standalone/build/include"
             ],
             "mlir.server_path": "${containerWorkspaceFolder}/builds/llvm-project/install/bin//mlir-lsp-server",
             "mlir.tablegen_server_path": "${containerWorkspaceFolder}/builds/llvm-project/install/bin/tblgen-lsp-server",
