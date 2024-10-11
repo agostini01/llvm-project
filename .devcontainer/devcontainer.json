@@ -30,7 +30,8 @@
                 "ms-vscode.cpptools",
                 "ms-vscode.cpptools-extension-pack",
                 "ms-vscode.cmake-tools",
-                "llvm-vs-code-extensions.vscode-mlir"
+                "llvm-vs-code-extensions.vscode-mlir",
+                "vadimcn.vscode-lldb"
             ]
         },
         "settings": {
