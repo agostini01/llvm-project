@@ -17,6 +17,8 @@ To get started, you need to have the following installed:
         - Shallow clone the project at the branch you want to work on:
             ```sh
             git clone --depth 1 --branch 19.1.1-20241011-neu_class https://github.com/agostini01/llvm-project.git
+            cd llvm-project
+            code .
             ```
 
 2. **Reopen in Container:**
@@ -46,9 +48,9 @@ Subsequent builds:
 
 
 ```bash
-# cmake --build /workspaces/llvm-project-class/builds/llvm-project/build/ --target <desired_target_list>
-cmake --build /workspaces/llvm-project-class/builds/llvm-project/build/ --target check-mlir # compile and run tests
-cmake --build /workspaces/llvm-project-class/builds/llvm-project/build/ --target opt mlir-opt mlir-translate mlir-cpu-runner install # install 
+# cmake --build /workspaces/llvm-project/builds/llvm-project/build/ --target <desired_target_list>
+cmake --build /workspaces/llvm-project/builds/llvm-project/build/ --target check-mlir # compile and run tests
+cmake --build /workspaces/llvm-project/builds/llvm-project/build/ --target opt mlir-opt mlir-translate mlir-cpu-runner install # install 
 ```
 
 
