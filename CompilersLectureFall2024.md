@@ -67,6 +67,11 @@ run llvm-project testing on a specific test file.  This can be achieved by:
 Some examples used in the class are:
 
 - [Common Subexpression Elimination](mlir/test/CompilersLectureFall2024/cse.mlir)
+- [Lower affine](mlir/test/CompilersLectureFall2024/lower-affine.mlir)
+- [Lower linalg](mlir/test/CompilersLectureFall2024/lower-linalg.mlir)
+- [Translate ll into MLIR](mlir/test/CompilersLectureFall2024/mlir-translate.ll)
+- [Translate mlir llvm dialect into ll](mlir/test/CompilersLectureFall2024/mlir-translate.mlir)
+- [Schedule transformations with the transform dialect](mlir/test/CompilersLectureFall2024/transform-e2e.mlir)
 
 ## Exploring MLIR Source Code
 

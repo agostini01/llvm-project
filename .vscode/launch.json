@@ -7,21 +7,21 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug lower-affine.mlir file",
+            "name": "Debug affine-unroll.mlir file",
             "program": "${workspaceFolder}/builds/llvm-project/build/bin/mlir-opt",
             "args": [
-                "${workspaceFolder}/mlir/test/CompilersLectureFall2024/lower-affine.mlir",
-                "-convert-linalg-to-affine-loops",
-                "-affine-loop-tile=tile-size=2",
+                "${workspaceFolder}/mlir/test/CompilersLectureFall2024/affine-unroll.mlir",
+                "--affine-loop-unroll",
                 "-lower-affine",
+                "-cse",
                 "--mlir-print-ir-after-all"
             ],
             "cwd": "${workspaceFolder}",
-            "stdio": [
-                null,
-                null,
-                "debug-stderr.log.mlir"
-            ]
+            // "stdio": [
+            //     null,
+            //     null,
+            //     "debug-stderr.log.mlir"
+            // ]
         },
         {
             "type": "lldb",
