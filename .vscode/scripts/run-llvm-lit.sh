@@ -5,7 +5,7 @@ workspace_folder="$1"
 filename="$2"
 
 # Define the prefix to strip
-prefix="${workspace_folder}/chemcomp/test/"
+prefix="${workspace_folder}/standalone/test/"
 
 # Strip the prefix from the filename
 modified_filename=$(echo "$filename" | sed "s|^$prefix||")

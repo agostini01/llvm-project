@@ -23,6 +23,29 @@
                 "panel": "shared"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Run jit e2e on file",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/scripts/run-e2e-jit.sh",
+            "args": [
+                "${workspaceFolder}",
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/builds/llvm-project/build/test"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
         }
-    ]
+    ],
 }

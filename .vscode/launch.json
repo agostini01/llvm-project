@@ -1,0 +1,46 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug lower-affine.mlir file",
+            "program": "${workspaceFolder}/builds/llvm-project/build/bin/mlir-opt",
+            "args": [
+                "${workspaceFolder}/mlir/test/CompilersLectureFall2024/lower-affine.mlir",
+                "-convert-linalg-to-affine-loops",
+                "-affine-loop-tile=tile-size=2",
+                "-lower-affine",
+                "--mlir-print-ir-after-all"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stdio": [
+                null,
+                null,
+                "debug-stderr.log.mlir"
+            ]
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug mlir transform-interpreter on open file",
+            "program": "${workspaceFolder}/builds/llvm-project/build/bin/mlir-opt",
+            "args": [
+                "${file}",
+                "--transform-interpreter",
+                "-test-transform-dialect-erase-schedule",
+                "--test-lower-to-llvm",
+                "--mlir-print-ir-after-all"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stdio": [
+                null,
+                null,
+                "debug-stderr.log.mlir"
+            ]
+        },
+    ]
+}
