@@ -1,0 +1,28 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run llvm-lit on file",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/scripts/run-llvm-lit.sh",
+            "args": [
+                "${workspaceFolder}",
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/builds/llvm-project/build/test"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

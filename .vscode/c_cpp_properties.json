@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/external/llvm-project/**",
+                "${workspaceFolder}/chemcomp/include",
+                "${workspaceFolder}/builds/llvm-project/build/include",
+                "${workspaceFolder}/builds/llvm-project/build/tools/mlir/include",
+                "${workspaceFolder}/builds/chemcomp/build/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-clang-x64",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}

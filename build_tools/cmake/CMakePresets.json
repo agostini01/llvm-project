@@ -1,0 +1,81 @@
+// This file is not ready yet. Do not use it.
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "YES"
+      }
+    },
+    {
+      "name": "config-cc-dev",
+      "inherits": "default",
+      "description": "Configure for building cc-dev project",
+      "binaryDir": "${sourceDir}/builds/chemcomp/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/builds/chemcomp/install",
+        "LLVM_EXTERNAL_LIT": "${sourceDir}/builds/llvm-project/build/dir/bin/llvm-lit",
+        "MLIR_DIR": "${sourceDir}/builds/llvm-project/install/lib/cmake/mlir",
+        "LLVM_DIR": "${sourceDir}/builds/llvm-project/install/lib/cmake/llvm",
+        "MLIR_ENABLE_BINDINGS_PYTHON": "ON"
+      }
+    },
+    {
+      "name": "config-llvm-dev",
+      "inherits": "default",
+      "description": "Configure for building llvm-dev project",
+      "binaryDir": "${sourceDir}/builds/llvm-project/build",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/builds/llvm-project/install",
+        "LLVM_INSTALL_UTILS": "ON",
+        "LLVM_ENABLE_LLD": "ON",
+        "LLVM_ENABLE_PROJECTS": "mlir",
+        "LLVM_TARGETS_TO_BUILD": "host",
+        "LLVM_INCLUDE_TOOLS": "ON",
+        "LLVM_BUILD_TOOLS": "ON",
+        "LLVM_INCLUDE_TESTS": "ON",
+        "MLIR_INCLUDE_TESTS": "ON",
+        "MLIR_ENABLE_BINDINGS_PYTHON": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLVM_ENABLE_ASSERTIONS": "ON",
+        "LLVM_BUILD_EXAMPLES": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "configurePreset": "default"
+    },
+    {
+      "name": "build-cc-dev",
+      "configurePreset": "config-cc-dev",
+      "description": "Build cc-dev project",
+      "targets": [
+        "standalone-opt"
+      ]
+    },
+    {
+      "name": "build-llvm-dev",
+      "configurePreset": "config-llvm-dev",
+      "description": "Build llvm-dev project",
+      "targets": [
+        "opt",
+        "mlir-opt",
+        "mlir-translate",
+        "mlir-cpu-runner",
+        "install"
+      ]
+    }
+  ]
+}

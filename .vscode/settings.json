@@ -1,0 +1,14 @@
+{
+    "editor.formatOnSave": true,
+    "files.associations": {
+        "*.cu": "cpp",
+        "*.cuh": "cpp",
+        "*.inc": "cpp"
+    },
+    "cmake.sourceDirectory": "${workspaceFolder}/mlir",
+    "cmake.buildDirectory": "${workspaceFolder}/builds/llvm-project/build",
+    "cmake.additionalKits": [
+        "${workspaceFolder/.vscode/cmake-kits.json}"
+    ],
+    "cmake.skipConfigureIfCachePresent": true
+}
